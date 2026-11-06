@@ -14,7 +14,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Resolve base ref
         id: base
-        run: echo "ref=${{ github.event.pull_request.base.sha || github.event.before }}" >> "$GITHUB_OUTPUT"
+        run: |
+          ref="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if ! git cat-file -e "$ref" 2>/dev/null; then
+            ref="HEAD~1"
+            echo "event base not reachable, falling back to $ref" >&2
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
       - name: Bench base commit
         id: bench_base
         run: |
