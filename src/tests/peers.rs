@@ -144,36 +144,107 @@ fn lost_init_peng() {
 }
 
 #[test]
-#[ignore]
 fn peer_exchange() {
-    // TODO Test
-    unimplemented!()
+    // node2 and node3 are never connected directly; they must discover
+    // each other through the peer lists node1 sends in its node info
+    let config = Config::default();
+    let mut sim = TapSimulator::new();
+    let node1 = sim.add_node(false, &config);
+    let node2 = sim.add_node(false, &config);
+    let node3 = sim.add_node(false, &config);
+
+    sim.connect(node1, node2);
+    sim.connect(node1, node3);
+    sim.simulate_all_messages();
+    sim.simulate_time(120);
+
+    assert!(sim.is_connected(node2, node3));
+    assert!(sim.is_connected(node3, node2));
 }
 
 #[test]
-#[ignore]
 fn lost_peer_exchange() {
-    // TODO Test
-    unimplemented!()
+    // The peer lists are retransmitted periodically, so losing the first
+    // exchange only delays discovery
+    let config = Config::default();
+    let mut sim = TapSimulator::new();
+    let node1 = sim.add_node(false, &config);
+    let node2 = sim.add_node(false, &config);
+    let node3 = sim.add_node(false, &config);
+
+    sim.connect(node1, node2);
+    sim.connect(node1, node3);
+    sim.simulate_all_messages();
+
+    sim.trigger_housekeep();
+    while sim.message_count() > 0 {
+        sim.drop_message();
+    }
+    assert!(!sim.is_connected(node2, node3) || !sim.is_connected(node3, node2));
+
+    sim.simulate_time(120);
+    assert!(sim.is_connected(node2, node3));
+    assert!(sim.is_connected(node3, node2));
 }
 
 #[test]
-#[ignore]
 fn remove_dead_peers() {
-    // TODO Test
-    unimplemented!()
+    // node3 stops sending entirely; the live nodes must drop it while
+    // keeping each other
+    let config = Config::default();
+    let mut sim = TapSimulator::new();
+    let node1 = sim.add_node(false, &config);
+    let node2 = sim.add_node(false, &config);
+    let node3 = sim.add_node(false, &config);
+
+    sim.connect(node1, node2);
+    sim.connect(node1, node3);
+    sim.simulate_all_messages();
+    sim.simulate_time(120);
+    assert!(sim.is_connected(node1, node3));
+
+    // node3 dies; the live nodes must drop it while keeping each other
+    sim.remove_node(node3);
+    sim.simulate_time(500);
+    assert!(!sim.is_connected(node1, node3));
+    assert!(!sim.is_connected(node2, node3));
+    assert!(sim.is_connected(node1, node2));
+    assert!(sim.is_connected(node2, node1));
 }
 
 #[test]
-#[ignore]
+#[ignore = "requires simulator support for rebinding a node's socket address"]
 fn update_primary_address() {
     // TODO Test
     unimplemented!()
 }
 
 #[test]
-#[ignore]
 fn automatic_peer_timeout() {
-    // TODO Test
-    unimplemented!()
+    // With no traffic at all, a node must drop a peer once its configured
+    // peer timeout has passed - without waiting for any external event
+    let config = Config::default();
+    let mut sim = TapSimulator::new();
+    let node1 = sim.add_node(false, &config);
+    let node2 = sim.add_node(false, &config);
+
+    sim.connect(node1, node2);
+    sim.simulate_all_messages();
+    assert!(sim.is_connected(node1, node2));
+
+    sim.set_time(5000);
+    // node1 housekeeps first and times node2 out; node2 still sees node1
+    // until its own housekeep runs. The entries are dropped inside
+    // housekeep, before the queued reconnect traffic is delivered.
+    sim.trigger_node_housekeep(node1);
+    assert!(!sim.is_connected(node1, node2));
+    assert!(sim.is_connected(node2, node1));
+
+    sim.trigger_node_housekeep(node2);
+    assert!(!sim.is_connected(node2, node1));
+
+    // delivering the queued reconnect traffic re-establishes the link
+    sim.simulate_all_messages();
+    assert!(sim.is_connected(node1, node2));
+    assert!(sim.is_connected(node2, node1));
 }

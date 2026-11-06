@@ -95,6 +95,10 @@ impl<P: Protocol> Simulator<P> {
     }
 
     #[allow(dead_code)]
+    pub fn remove_node(&mut self, addr: SocketAddr) {
+        self.nodes.remove(&addr);
+    }
+
     pub fn get_node(&mut self, addr: SocketAddr) -> &mut TestNode<P> {
         let node = self.nodes.get_mut(&addr).unwrap();
         DebugLogger::set_node(node.get_num());
