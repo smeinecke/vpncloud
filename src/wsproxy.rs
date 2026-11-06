@@ -147,7 +147,11 @@ impl Socket for ProxyConnection {
         buffer.clear();
         let data = self.read_message()?;
         let addr = read_addr(Cursor::new(&data))?;
-        buffer.clone_from(&data[18..]);
+        let payload = &data[18..];
+        if payload.len() > buffer.buffer().len() {
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "Message too big"));
+        }
+        buffer.clone_from(payload);
         Ok(addr)
     }
 
