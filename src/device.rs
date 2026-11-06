@@ -43,11 +43,13 @@ struct IfReq {
 }
 
 impl IfReq {
-    fn new(name: &str) -> Self {
-        assert!(name.len() < libc::IF_NAMESIZE);
+    fn new(name: &str) -> io::Result<Self> {
+        if name.len() >= libc::IF_NAMESIZE {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Interface name too long"));
+        }
         let mut ifr_name = [0; libc::IF_NAMESIZE];
         ifr_name[..name.len()].clone_from_slice(name.as_bytes());
-        Self { ifr_name, data: IfReqData { _dummy: [0; 24] } }
+        Ok(Self { ifr_name, data: IfReqData { _dummy: [0; 24] } })
     }
 }
 
@@ -139,9 +141,7 @@ impl TunTapDevice {
     /// - The special device file `/dev/net/tun` does not exist or is not accessible by the current user.
     /// - The interface name is invalid or already in use.
     /// - The current user does not have enough permissions to create tun/tap devices (this requires root permissions).
-    ///
-    /// # Panics
-    /// This method panics if the interface name is longer than 31 bytes.
+    /// - The interface name is too long.
     #[allow(clippy::useless_conversion)]
     pub fn new(ifname: &str, type_: Type, path: Option<&str>) -> io::Result<Self> {
         let path = path.unwrap_or_else(|| Self::default_path(type_));
@@ -150,7 +150,7 @@ impl TunTapDevice {
             Type::Tun => libc::IFF_TUN | libc::IFF_NO_PI,
             Type::Tap => libc::IFF_TAP | libc::IFF_NO_PI,
         };
-        let mut ifreq = IfReq::new(ifname);
+        let mut ifreq = IfReq::new(ifname)?;
         ifreq.data.flags = flags as libc::c_short;
         let res = unsafe { libc::ioctl(fd.as_raw_fd(), TUNSETIFF.try_into().unwrap(), &mut ifreq) };
         match res {
@@ -374,7 +374,7 @@ impl AsRawFd for MockDevice {
 #[allow(clippy::useless_conversion)]
 fn set_device_mtu(ifname: &str, mtu: usize) -> io::Result<()> {
     let sock = UdpSocket::bind("0.0.0.0:0")?;
-    let mut ifreq = IfReq::new(ifname);
+    let mut ifreq = IfReq::new(ifname)?;
     ifreq.data.value = mtu as libc::c_int;
     let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCSIFMTU.try_into().unwrap(), &mut ifreq) };
     match res {
@@ -386,7 +386,7 @@ fn set_device_mtu(ifname: &str, mtu: usize) -> io::Result<()> {
 #[allow(clippy::useless_conversion)]
 fn get_device_mtu(ifname: &str) -> io::Result<usize> {
     let sock = UdpSocket::bind("0.0.0.0:0")?;
-    let mut ifreq = IfReq::new(ifname);
+    let mut ifreq = IfReq::new(ifname)?;
     let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCGIFMTU.try_into().unwrap(), &mut ifreq) };
     match res {
         0 => Ok(unsafe { ifreq.data.value as usize }),
@@ -397,7 +397,7 @@ fn get_device_mtu(ifname: &str) -> io::Result<usize> {
 #[allow(clippy::useless_conversion)]
 fn get_device_addr(ifname: &str) -> io::Result<Ipv4Addr> {
     let sock = UdpSocket::bind("0.0.0.0:0")?;
-    let mut ifreq = IfReq::new(ifname);
+    let mut ifreq = IfReq::new(ifname)?;
     let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCGIFADDR.try_into().unwrap(), &mut ifreq) };
     match res {
         0 => {
@@ -415,7 +415,7 @@ fn get_device_addr(ifname: &str) -> io::Result<Ipv4Addr> {
 #[allow(clippy::useless_conversion)]
 fn set_device_addr(ifname: &str, addr: Ipv4Addr) -> io::Result<()> {
     let sock = UdpSocket::bind("0.0.0.0:0")?;
-    let mut ifreq = IfReq::new(ifname);
+    let mut ifreq = IfReq::new(ifname)?;
     ifreq.data.addr.family = libc::AF_INET as libc::sa_family_t;
     ifreq.data.addr.port = 0;
     ifreq.data.addr.addr = addr;
@@ -430,7 +430,7 @@ fn set_device_addr(ifname: &str, addr: Ipv4Addr) -> io::Result<()> {
 #[allow(clippy::useless_conversion)]
 fn get_device_netmask(ifname: &str) -> io::Result<Ipv4Addr> {
     let sock = UdpSocket::bind("0.0.0.0:0")?;
-    let mut ifreq = IfReq::new(ifname);
+    let mut ifreq = IfReq::new(ifname)?;
     let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCGIFNETMASK.try_into().unwrap(), &mut ifreq) };
     match res {
         0 => {
@@ -448,7 +448,7 @@ fn get_device_netmask(ifname: &str) -> io::Result<Ipv4Addr> {
 #[allow(clippy::useless_conversion)]
 fn set_device_netmask(ifname: &str, addr: Ipv4Addr) -> io::Result<()> {
     let sock = UdpSocket::bind("0.0.0.0:0")?;
-    let mut ifreq = IfReq::new(ifname);
+    let mut ifreq = IfReq::new(ifname)?;
     ifreq.data.addr.family = libc::AF_INET as libc::sa_family_t;
     ifreq.data.addr.port = 0;
     ifreq.data.addr.addr = addr;
@@ -462,7 +462,7 @@ fn set_device_netmask(ifname: &str, addr: Ipv4Addr) -> io::Result<()> {
 #[allow(clippy::useless_conversion)]
 fn set_device_enabled(ifname: &str, up: bool) -> io::Result<()> {
     let sock = UdpSocket::bind("0.0.0.0:0")?;
-    let mut ifreq = IfReq::new(ifname);
+    let mut ifreq = IfReq::new(ifname)?;
     if unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCGIFFLAGS.try_into().unwrap(), &mut ifreq) } != 0 {
         return Err(IoError::last_os_error());
     }
