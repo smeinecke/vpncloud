@@ -212,13 +212,21 @@ impl TunTapDevice {
     fn correct_data_before_write(&mut self, buffer: &mut MsgBuffer) {
         if self.type_ == Type::Tun {
             // BSD-based systems add a 4-byte header containing the Ethertype for TUN
-            buffer.set_start(buffer.get_start() - 4);
-            match buffer.message()[4] >> 4 {
+            let header = match buffer.message().first().map(|b| b >> 4) {
                 // IP version
-                4 => buffer.message_mut()[0..4].copy_from_slice(&[0x00, 0x00, 0x08, 0x00]),
-                6 => buffer.message_mut()[0..4].copy_from_slice(&[0x00, 0x00, 0x86, 0xdd]),
-                _ => unreachable!(),
+                Some(4) => [0x00, 0x00, 0x08, 0x00],
+                Some(6) => [0x00, 0x00, 0x86, 0xdd],
+                _ => {
+                    buffer.clear();
+                    return;
+                }
+            };
+            if buffer.get_start() < 4 {
+                buffer.clear();
+                return;
             }
+            buffer.set_start(buffer.get_start() - 4);
+            buffer.message_mut()[0..4].copy_from_slice(&header);
         }
     }
 
