@@ -98,6 +98,17 @@ impl Nonce {
             }
         }
     }
+
+    /// Returns the numeric distance `self - older`, saturating at 0.
+    fn distance_to(&self, older: &Nonce) -> u128 {
+        let mut a: u128 = 0;
+        let mut b: u128 = 0;
+        for i in 0..NONCE_LEN {
+            a = a << 8 | u128::from(self.0[i]);
+            b = b << 8 | u128::from(older.0[i]);
+        }
+        a.saturating_sub(b)
+    }
 }
 
 struct CryptoKey {
@@ -106,6 +117,9 @@ struct CryptoKey {
     min_nonce: Nonce,
     next_min_nonce: Nonce,
     seen_nonce: Nonce,
+    // Bit i marks whether the nonce `seen_nonce - i` has been accepted so far,
+    // used to reject replayed messages inside the reordering window.
+    seen_window: u128,
 }
 
 impl CryptoKey {
@@ -118,6 +132,7 @@ impl CryptoKey {
             min_nonce: Nonce::zero(),
             next_min_nonce: Nonce::zero(),
             seen_nonce: Nonce::zero(),
+            seen_window: 0,
         }
     }
 
@@ -187,9 +202,17 @@ impl CryptoCore {
         key.key
             .open_in_place(crypto_nonce, aead::Aad::empty(), data_and_tag)
             .map_err(|_| Error::Crypto("Failed to decrypt data"))?;
-        // last seen nonce
-        if key.seen_nonce < nonce {
+        // Reject replayed nonces inside the reordering window
+        if nonce > key.seen_nonce {
+            let delta = nonce.distance_to(&key.seen_nonce);
+            key.seen_window = if delta >= 128 { 1 } else { (key.seen_window << delta) | 1 };
             key.seen_nonce = nonce;
+        } else {
+            let delta = key.seen_nonce.distance_to(&nonce);
+            if delta >= 128 || key.seen_window & (1 << delta) != 0 {
+                return Err(Error::Crypto("Replayed nonce rejected"));
+            }
+            key.seen_window |= 1 << delta;
         }
         Ok(())
     }
@@ -323,9 +346,11 @@ mod tests {
         d = buffer.clone();
         d.message_mut()[EXTRA_LEN] ^= 1;
         assert!(receiver.decrypt(&mut d).is_err());
-        // Check everything still works
-        d = buffer;
-        assert!(receiver.decrypt(&mut d).is_ok());
+        // Check a fresh message still decrypts
+        let mut fresh = MsgBuffer::new(EXTRA_LEN);
+        fresh.clone_from(&plain);
+        sender.encrypt(&mut fresh).unwrap();
+        assert!(receiver.decrypt(&mut fresh).is_ok());
     }
 
     #[test]
@@ -366,8 +391,9 @@ mod tests {
         }
         receiver.every_second();
         {
+            // The same message replayed inside the window must be rejected
             let mut d = buffer.clone();
-            assert!(receiver.decrypt(&mut d).is_ok());
+            assert!(receiver.decrypt(&mut d).is_err());
         }
         receiver.every_second();
         {
@@ -446,7 +472,7 @@ mod tests {
 
     #[test]
     fn test_core_size() {
-        assert_eq!(2384, mem::size_of::<CryptoCore>());
+        assert_eq!(2448, mem::size_of::<CryptoCore>());
     }
 
     #[test]

@@ -207,4 +207,31 @@ impl<P: Protocol> Simulator<P> {
     pub fn drop_message(&mut self) {
         self.messages.pop_front();
     }
+
+    /// Flips a bit in the middle of the next queued message, simulating
+    /// corrupted or tampered traffic on the wire.
+    #[allow(dead_code)]
+    pub fn tamper_message(&mut self) {
+        if let Some((_, _, ref mut data)) = self.messages.front_mut() {
+            let pos = data.len() / 2;
+            if pos > 5 {
+                data[pos] ^= 0x01;
+            }
+        }
+    }
+
+    /// Duplicates the next queued message, simulating replayed traffic.
+    #[allow(dead_code)]
+    pub fn duplicate_message(&mut self) {
+        if let Some(msg) = self.messages.front().cloned() {
+            self.messages.push_back(msg);
+        }
+    }
+
+    /// Injects a raw message from an arbitrary source address, simulating
+    /// spoofed or forged traffic.
+    #[allow(dead_code)]
+    pub fn inject_message(&mut self, src: SocketAddr, dst: SocketAddr, data: Vec<u8>) {
+        self.messages.push_back((src, dst, data));
+    }
 }

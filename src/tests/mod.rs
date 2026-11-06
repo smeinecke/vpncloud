@@ -3,6 +3,7 @@
 // This software is licensed under GPL-3 or newer (see LICENSE.md)
 
 mod common;
+mod hostile;
 mod nat;
 mod payload;
 mod peers;
