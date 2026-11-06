@@ -458,11 +458,13 @@ impl<P: Payload> InitState<P> {
         }
     }
 
-    fn derive_master_key(&self, algo: &'static Algorithm, privk: EcdhPrivateKey, pubk: &EcdhPublicKey) -> LessSafeKey {
+    fn derive_master_key(
+        &self, algo: &'static Algorithm, privk: EcdhPrivateKey, pubk: &EcdhPublicKey,
+    ) -> Result<LessSafeKey, Error> {
         agree_ephemeral(privk, pubk, |k| {
             UnboundKey::new(algo, &k[..algo.key_len()]).map(LessSafeKey::new).unwrap()
         })
-        .unwrap()
+        .map_err(|_| Error::CryptoInitFatal("Invalid ECDH public key"))
     }
 
     fn create_ecdh_keypair(&self) -> (EcdhPrivateKey, EcdhPublicKey) {
@@ -606,7 +608,7 @@ impl<P: Payload> InitState<P> {
                 let algorithm = self.select_algorithm(&algorithms)?;
                 self.selected_algorithm = algorithm.map(|a| a.0);
                 if let Some((algorithm, _speed)) = algorithm {
-                    let master_key = self.derive_master_key(algorithm, my_ecdh_private_key, &ecdh_public_key);
+                    let master_key = self.derive_master_key(algorithm, my_ecdh_private_key, &ecdh_public_key)?;
                     self.crypto = Some(CryptoCore::new(master_key, self.salted_node_id_hash > salted_node_id_hash));
                 }
 
@@ -618,11 +620,14 @@ impl<P: Payload> InitState<P> {
             }
             InitMsg::Pong { ecdh_public_key, algorithms, mut encrypted_payload, .. } => {
                 // do ecdh agreement and derive master key
-                let ecdh_private_key = self.ecdh_private_key.take().unwrap();
+                let ecdh_private_key = self
+                    .ecdh_private_key
+                    .take()
+                    .ok_or(Error::CryptoInitFatal("Pong without previous ping"))?;
                 let algorithm = self.select_algorithm(&algorithms)?;
                 self.selected_algorithm = algorithm.map(|a| a.0);
                 if let Some((algorithm, _speed)) = algorithm {
-                    let master_key = self.derive_master_key(algorithm, ecdh_private_key, &ecdh_public_key);
+                    let master_key = self.derive_master_key(algorithm, ecdh_private_key, &ecdh_public_key)?;
                     self.crypto = Some(CryptoCore::new(master_key, self.salted_node_id_hash > salted_node_id_hash));
                 }
 
