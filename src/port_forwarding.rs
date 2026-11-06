@@ -77,7 +77,8 @@ mod internal {
                 return Ok(a);
             }
             for i in 1..5 {
-                if let Ok(a) = Self::get_forwarding(gateway, addr, port + i) {
+                let Some(next_port) = port.checked_add(i) else { break };
+                if let Ok(a) = Self::get_forwarding(gateway, addr, next_port) {
                     return Ok(a);
                 }
             }
