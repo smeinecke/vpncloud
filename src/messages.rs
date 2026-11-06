@@ -234,7 +234,7 @@ impl NodeInfo {
             Self::encode_part(&mut cursor, Self::PART_PEERS, |cursor| self.encode_peer_list_part(cursor))?;
             Self::encode_part(&mut cursor, Self::PART_CLAIMS, |mut cursor| {
                 for c in &self.claims {
-                    c.write_to(&mut cursor);
+                    c.write_to(&mut cursor)?;
                 }
                 Ok(())
             })?;

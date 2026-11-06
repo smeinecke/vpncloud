@@ -11,7 +11,7 @@ use smallvec::SmallVec;
 use std::{
     fmt,
     hash::{Hash, Hasher},
-    io::{Read, Write},
+    io::{self, Read, Write},
     net::{Ipv4Addr, Ipv6Addr},
     str::FromStr,
 };
@@ -44,9 +44,9 @@ impl Address {
     }
 
     #[inline]
-    pub fn write_to<W: Write>(&self, mut w: W) {
-        w.write_u8(self.len).expect("Buffer too small");
-        w.write_all(&self.data[..self.len as usize]).expect("Buffer too small");
+    pub fn write_to<W: Write>(&self, mut w: W) -> io::Result<()> {
+        w.write_u8(self.len)?;
+        w.write_all(&self.data[..self.len as usize])
     }
 
     pub fn from_ipv4(ip: Ipv4Addr) -> Self {
@@ -161,9 +161,9 @@ impl Range {
     }
 
     #[inline]
-    pub fn write_to<W: Write>(&self, mut w: W) {
-        self.base.write_to(&mut w);
-        w.write_u8(self.prefix_len).expect("Buffer too small")
+    pub fn write_to<W: Write>(&self, mut w: W) -> io::Result<()> {
+        self.base.write_to(&mut w)?;
+        w.write_u8(self.prefix_len)
     }
 }
 
