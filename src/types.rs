@@ -306,13 +306,13 @@ mod tests {
     fn address_decode_encode() {
         let mut buf = vec![];
         let addr = Address::from_str("120.45.22.5").unwrap();
-        addr.write_to(Cursor::new(&mut buf));
+        addr.write_to(Cursor::new(&mut buf)).unwrap();
         assert_eq!(&buf[0..5], &[4, 120, 45, 22, 5]);
         assert_eq!(addr, Address::read_from(Cursor::new(&buf)).unwrap());
         assert_eq!(addr, Address::read_from_fixed(Cursor::new(&buf[1..]), 4).unwrap());
         buf.clear();
         let addr = Address::from_str("78:2d:16:05:01:02").unwrap();
-        addr.write_to(Cursor::new(&mut buf));
+        addr.write_to(Cursor::new(&mut buf)).unwrap();
         assert_eq!(&buf[0..7], &[6, 0x78, 0x2d, 0x16, 0x05, 0x01, 0x02]);
         assert_eq!(addr, Address::read_from(Cursor::new(&buf)).unwrap());
         assert_eq!(addr, Address::read_from_fixed(Cursor::new(&buf[1..]), 6).unwrap());
@@ -348,7 +348,7 @@ mod tests {
         let mut buf = vec![];
         let range =
             Range { base: Address { data: [0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], len: 4 }, prefix_len: 24 };
-        range.write_to(Cursor::new(&mut buf));
+        range.write_to(Cursor::new(&mut buf)).unwrap();
         assert_eq!(&buf[0..6], &[4, 0, 1, 2, 3, 24]);
         assert_eq!(range, Range::read_from(Cursor::new(&buf)).unwrap());
         assert!(Range::read_from(Cursor::new(&buf[..5])).is_err()); // Missing prefix length
