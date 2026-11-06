@@ -218,6 +218,9 @@ impl InitMsg {
                             algos.push((algo, speed));
                         }
                     }
+                    // Skip remaining bytes if the field length is not a multiple of 5
+                    let mut rest = vec![0; field_len - count * 5];
+                    r.read_exact(&mut rest).map_err(|_| Error::Parse("Init message too short"))?;
                     algorithms = Some(Algorithms { algorithm_speeds: algos, allow_unencrypted });
                 }
                 _ => {
