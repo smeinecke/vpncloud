@@ -25,7 +25,7 @@ impl EpollWait {
 
     fn create(socket: RawFd, device: RawFd, timeout: u32, flags: u32) -> io::Result<Self> {
         let mut event = libc::epoll_event { u64: 0, events: 0 };
-        let poll_fd = unsafe { libc::epoll_create(3) };
+        let poll_fd = unsafe { libc::epoll_create1(libc::EPOLL_CLOEXEC) };
         if poll_fd == -1 {
             return Err(io::Error::last_os_error());
         }
@@ -34,7 +34,9 @@ impl EpollWait {
             event.events = flags;
             let res = unsafe { libc::epoll_ctl(poll_fd, libc::EPOLL_CTL_ADD, *fd, &mut event) };
             if res == -1 {
-                return Err(io::Error::last_os_error());
+                let err = io::Error::last_os_error();
+                unsafe { libc::close(poll_fd) };
+                return Err(err);
             }
         }
         Ok(Self { poll_fd, event, socket, device, timeout })
