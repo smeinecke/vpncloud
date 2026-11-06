@@ -190,6 +190,10 @@ impl TunTapDevice {
     fn correct_data_after_read(&mut self, buffer: &mut MsgBuffer) {
         if self.type_ == Type::Tun {
             // BSD-based systems add a 4-byte header containing the Ethertype for TUN
+            if buffer.len() < 4 {
+                buffer.clear();
+                return;
+            }
             buffer.set_start(buffer.get_start() + 4);
         } else {
         }
