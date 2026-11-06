@@ -142,8 +142,10 @@ impl Socket for MockSocket {
     fn receive(&mut self, buffer: &mut MsgBuffer) -> Result<SocketAddr, io::Error> {
         if let Some((addr, data)) = self.inbound.pop_front() {
             buffer.clear();
-            buffer.set_length(data.len());
-            buffer.message_mut().copy_from_slice(&data);
+            // Truncate like a real kernel socket instead of exceeding the buffer
+            let size = data.len().min(buffer.buffer().len());
+            buffer.set_length(size);
+            buffer.message_mut().copy_from_slice(&data[..size]);
             Ok(addr)
         } else {
             Err(io::Error::new(ErrorKind::Other, "nothing in queue"))
