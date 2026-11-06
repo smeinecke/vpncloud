@@ -132,6 +132,8 @@ impl NodeInfo {
                     rp.read_exact(&mut data).map_err(|_| Error::Message("Truncated message"))?;
                 }
             }
+            // Consume remaining bytes if the part was longer than its decoded contents
+            io::copy(&mut rp, &mut io::sink()).map_err(|_| Error::Message("Truncated message"))?;
             r = rp.into_inner();
         }
         let node_id = match node_id {
@@ -262,4 +264,24 @@ impl Payload for NodeInfo {
     fn read_from<R: Read>(r: R) -> Result<Self, Error> {
         Self::decode(r)
     }
+}
+
+#[test]
+fn decode_padded_parts() {
+    // A node info message where the peer_timeout part declares a larger
+    // length than its content; the remaining bytes must be skipped, not
+    // parsed as the next part header
+    let node_id = [7; NODE_ID_BYTES];
+    let mut data = vec![];
+    data.push(NodeInfo::PART_PEER_TIMEOUT);
+    data.write_u16::<NetworkEndian>(4).unwrap(); // 2 bytes value + 2 bytes padding
+    data.write_u16::<NetworkEndian>(300).unwrap();
+    data.write_all(&[0xaa, 0xbb]).unwrap(); // padding
+    data.push(NodeInfo::PART_NODEID);
+    data.write_u16::<NetworkEndian>(NODE_ID_BYTES as u16).unwrap();
+    data.write_all(&node_id).unwrap();
+    data.push(NodeInfo::PART_END);
+    let info = NodeInfo::decode(Cursor::new(&data)).unwrap();
+    assert_eq!(Some(300), info.peer_timeout);
+    assert_eq!(node_id, info.node_id);
 }
