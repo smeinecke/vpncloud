@@ -136,39 +136,39 @@ impl RotationState {
         EcdhPublicKey::new(&X25519, vec)
     }
 
-    fn derive_key(private_key: EcdhPrivateKey, public_key: EcdhPublicKey) -> Key {
+    fn derive_key(private_key: EcdhPrivateKey, public_key: EcdhPublicKey) -> Result<Key, Error> {
         agree_ephemeral(private_key, &public_key, |k| {
             let mut vec = Key::new();
             vec.extend_from_slice(k);
             vec
         })
-        .unwrap()
+        .map_err(|_| Error::Crypto("Invalid ECDH public key in rotation message"))
     }
 
     pub fn handle_message(&mut self, msg: &[u8]) -> Result<Option<RotatedKey>, Error> {
         let msg =
             RotationMessage::read_from(Cursor::new(msg)).map_err(|_| Error::Crypto("Rotation message too short"))?;
-        Ok(self.process_message(msg))
+        self.process_message(msg)
     }
 
-    pub fn process_message(&mut self, msg: RotationMessage) -> Option<RotatedKey> {
+    pub fn process_message(&mut self, msg: RotationMessage) -> Result<Option<RotatedKey>, Error> {
         if msg.message_id <= self.message_id {
-            return None;
+            return Ok(None);
         }
         debug!("Received rotation message with id {}", msg.message_id);
         self.timeout = false;
         // Create key from proposal and store reply as pending
         let (private_key, public_key) = Self::create_key();
-        let key = Self::derive_key(private_key, msg.propose);
+        let key = Self::derive_key(private_key, msg.propose)?;
         self.pending = Some((key, public_key));
         // If proposed key has been confirmed, derive and use key
         if let Some(peer_key) = msg.confirm {
             if let Some(private_key) = self.proposed.take() {
-                let key = Self::derive_key(private_key, peer_key);
-                return Some(RotatedKey { key, id: msg.message_id, use_for_sending: true });
+                let key = Self::derive_key(private_key, peer_key)?;
+                return Ok(Some(RotatedKey { key, id: msg.message_id, use_for_sending: true }));
             }
         }
-        None
+        Ok(None)
     }
 
     #[allow(dead_code)]
@@ -261,7 +261,7 @@ mod tests {
         assert_eq!(msg1.message_id, 1);
         assert!(out2.is_empty());
         // Message 1
-        let key = node2.process_message(msg1);
+        let key = node2.process_message(msg1).unwrap();
         assert!(key.is_none());
         // Cycle 1
         let key1 = node1.cycle(&mut out1);
@@ -277,7 +277,7 @@ mod tests {
         assert_eq!(msg2.message_id, 2);
         assert!(msg2.confirm.is_some());
         // Message 2
-        let key = node1.process_message(msg2);
+        let key = node1.process_message(msg2).unwrap();
         assert!(key.is_some());
         let key = key.unwrap();
         assert_eq!(key.id, 2);
@@ -296,7 +296,7 @@ mod tests {
         assert!(key2.is_none());
         assert!(out2.is_empty());
         // Message 3
-        let key = node2.process_message(msg1);
+        let key = node2.process_message(msg1).unwrap();
         assert!(key.is_some());
         let key = key.unwrap();
         assert_eq!(key.id, 3);
@@ -315,7 +315,7 @@ mod tests {
         assert_eq!(msg2.message_id, 4);
         assert!(msg2.confirm.is_some());
         // Message 4
-        let key = node1.process_message(msg2);
+        let key = node1.process_message(msg2).unwrap();
         assert!(key.is_some());
         let key = key.unwrap();
         assert_eq!(key.id, 4);
@@ -331,31 +331,31 @@ mod tests {
         let mut node2 = RotationState::new(false, &mut out2);
         let msg1 = out1.clone().msg().unwrap();
         let msg1_copy = out1.msg().unwrap();
-        node2.process_message(msg1);
-        assert!(node2.process_message(msg1_copy).is_none());
+        node2.process_message(msg1).unwrap();
+        assert!(node2.process_message(msg1_copy).unwrap().is_none());
         node1.cycle(&mut out1);
         node2.cycle(&mut out2);
         let msg2 = out2.clone().msg().unwrap();
         let msg2_copy = out2.msg().unwrap();
         // Message 2
-        assert!(node1.process_message(msg2).is_some());
-        assert!(node1.process_message(msg2_copy).is_none());
+        assert!(node1.process_message(msg2).unwrap().is_some());
+        assert!(node1.process_message(msg2_copy).unwrap().is_none());
         // Cycle 2
         node1.cycle(&mut out1);
         node2.cycle(&mut out2);
         let msg1 = out1.clone().msg().unwrap();
         let msg1_copy = out1.msg().unwrap();
         // Message 3
-        assert!(node2.process_message(msg1).is_some());
-        assert!(node2.process_message(msg1_copy).is_none());
+        assert!(node2.process_message(msg1).unwrap().is_some());
+        assert!(node2.process_message(msg1_copy).unwrap().is_none());
         // Cycle 3
         node1.cycle(&mut out1);
         node2.cycle(&mut out2);
         let msg2 = out2.clone().msg().unwrap();
         let msg2_copy = out2.msg().unwrap();
         // Message 4
-        assert!(node1.process_message(msg2).is_some());
-        assert!(node1.process_message(msg2_copy).is_none());
+        assert!(node1.process_message(msg2).unwrap().is_some());
+        assert!(node1.process_message(msg2_copy).unwrap().is_none());
     }
 
     #[test]
@@ -375,13 +375,13 @@ mod tests {
         node2.cycle(&mut out2);
         let msg1 = out1.msg().unwrap();
         // Message 3
-        assert!(node2.process_message(msg1).is_none());
+        assert!(node2.process_message(msg1).unwrap().is_none());
         // Cycle 3
         node1.cycle(&mut out1);
         node2.cycle(&mut out2);
         let msg2 = out2.msg().unwrap();
         // Message 4
-        assert!(node1.process_message(msg2).is_some());
+        assert!(node1.process_message(msg2).unwrap().is_some());
     }
 
     #[test]
@@ -392,7 +392,7 @@ mod tests {
         let mut node1 = RotationState::new(true, &mut out1);
         let mut node2 = RotationState::new(false, &mut out2);
         let msg1 = out1.msg().unwrap();
-        assert!(node1.process_message(msg1).is_none());
+        assert!(node1.process_message(msg1).unwrap().is_none());
         node1.cycle(&mut out1);
         node2.cycle(&mut out2);
         assert!(out2.msg().is_none());
@@ -401,12 +401,12 @@ mod tests {
         node2.cycle(&mut out2);
         let msg1 = out1.msg().unwrap();
         // Message 3
-        assert!(node2.process_message(msg1).is_none());
+        assert!(node2.process_message(msg1).unwrap().is_none());
         // Cycle 3
         node1.cycle(&mut out1);
         node2.cycle(&mut out2);
         let msg2 = out2.msg().unwrap();
         // Message 4
-        assert!(node1.process_message(msg2).is_some());
+        assert!(node1.process_message(msg2).unwrap().is_some());
     }
 }
