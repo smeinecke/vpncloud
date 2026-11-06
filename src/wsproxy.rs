@@ -56,7 +56,7 @@ fn serve_proxy_connection(stream: TcpStream) -> Result<(), io::Error> {
     let mut msg = Vec::with_capacity(18);
     let mut addr = udpsocket.local_addr()?;
     info!("Listening on {} for peer {}", addr, peer);
-    addr.set_ip(get_ip());
+    addr.set_ip(get_ip()?);
     write_addr(addr, &mut msg)?;
     io_error!(websocket.send(Message::Binary(msg)), "Failed to write to ws connection: {}")?;
     let websocketfd = websocket.get_ref().as_raw_fd();
