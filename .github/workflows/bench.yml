@@ -16,10 +16,21 @@ jobs:
         id: base
         run: echo "ref=${{ github.event.pull_request.base.sha || github.event.before }}" >> "$GITHUB_OUTPUT"
       - name: Bench base commit
+        id: bench_base
         run: |
           git worktree add /tmp/base "${{ steps.base.outputs.ref }}"
           cd /tmp/base
-          PERF_UPDATE=1 PERF_BASELINE=/tmp/base.txt cargo bench --bench perf_gate
+          if grep -q 'perf_gate' Cargo.toml 2>/dev/null; then
+            PERF_UPDATE=1 PERF_BASELINE=/tmp/base.txt cargo bench --bench perf_gate
+          else
+            echo "base commit has no perf_gate target - skipping comparison" >&2
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Compare head against base
+        if: steps.bench_base.outputs.skip != 'true'
         run: |
           PERF_BASELINE=/tmp/base.txt PERF_TOLERANCE_PCT=30 cargo bench --bench perf_gate
+      - name: Run gate against checked-in baseline
+        if: steps.bench_base.outputs.skip == 'true'
+        continue-on-error: true
+        run: cargo bench --bench perf_gate
