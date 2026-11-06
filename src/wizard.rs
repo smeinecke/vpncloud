@@ -447,7 +447,9 @@ pub fn configure(name: Option<String>) -> Result<(), dialoguer::Error> {
     } else {
         let mut names = vec![];
         for file in fs::read_dir("/etc/vpncloud")? {
-            names.push(file?.path().file_stem().unwrap().to_str().unwrap().to_string());
+            if let Some(name) = file?.path().file_stem().and_then(|s| s.to_str()) {
+                names.push(name.to_string());
+            }
         }
         let selection =
             Select::with_theme(&theme).with_prompt("Which network?").item("New network").items(&names).interact()?;
