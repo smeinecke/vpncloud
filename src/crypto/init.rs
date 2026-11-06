@@ -139,7 +139,7 @@ impl InitMsg {
         short_hash
     }
 
-    fn read_from(buffer: &[u8], trusted_keys: &[Ed25519PublicKey]) -> Result<(Self, Ed25519PublicKey), Error> {
+    pub fn read_from(buffer: &[u8], trusted_keys: &[Ed25519PublicKey]) -> Result<(Self, Ed25519PublicKey), Error> {
         let mut r = Cursor::new(buffer);
 
         let mut public_key_salt = [0; 4];

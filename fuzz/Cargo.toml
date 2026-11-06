@@ -1,0 +1,51 @@
+[package]
+name = "vpncloud-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ring = "0.17"
+
+[dependencies.vpncloud]
+path = ".."
+
+[[bin]]
+name = "init_msg"
+path = "fuzz_targets/init_msg.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "node_info"
+path = "fuzz_targets/node_info.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "beacon"
+path = "fuzz_targets/beacon.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "payload"
+path = "fuzz_targets/payload.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "decrypt"
+path = "fuzz_targets/decrypt.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "range"
+path = "fuzz_targets/range.rs"
+test = false
+doc = false

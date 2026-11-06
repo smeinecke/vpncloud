@@ -3,8 +3,10 @@
 // This software is licensed under GPL-3 or newer (see LICENSE.md)
 
 mod common;
-mod core;
-mod init;
+#[doc(hidden)]
+pub mod core;
+#[doc(hidden)]
+pub mod init;
 mod rotate;
 
 pub use self::core::{EXTRA_LEN, TAG_LEN};
