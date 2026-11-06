@@ -372,6 +372,9 @@ impl<P: Payload> PeerCrypto<P> {
             // HOT PATH
             debug!("Received encrypted message");
             self.decrypt_message(buffer)?;
+            if buffer.is_empty() {
+                return Err(Error::Crypto("Message contains no type header"));
+            }
             let msg_type = buffer.take_prefix();
             if msg_type == MESSAGE_TYPE_ROTATION {
                 // COLD PATH
