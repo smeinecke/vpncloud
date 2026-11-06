@@ -1,0 +1,12 @@
+name: Integration Test
+on: [push]
+jobs:
+  e2e:
+    name: End-to-end test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build test image
+        run: docker build -f contrib/e2e/Dockerfile -t vpncloud-e2e .
+      - name: Run end-to-end test
+        run: docker run --rm --privileged vpncloud-e2e
