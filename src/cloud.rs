@@ -615,10 +615,6 @@ impl<D: Device, P: Protocol, S: Socket, TS: TimeSource> GenericCloud<D, P, S, TS
         self.traffic.count_out_payload(dst, src, data.len());
         match self.table.lookup(dst) {
             Some(addr) => {
-                // HOT PATH
-                // Peer found for destination
-                debug!("Found destination for {} => {}", dst, addr);
-                self.send_msg(addr, MESSAGE_TYPE_DATA, data)?;
                 if !self.peers.contains_key(&addr) {
                     // COLD PATH
                     // If the peer is not actually connected, remove the entry in the table and try
@@ -626,7 +622,12 @@ impl<D: Device, P: Protocol, S: Socket, TS: TimeSource> GenericCloud<D, P, S, TS
                     warn!("Destination for {} not found in peers: {}", dst, addr_nice(addr));
                     self.table.remove_claims(addr);
                     self.connect_sock(addr)?;
+                    return Ok(());
                 }
+                // HOT PATH
+                // Peer found for destination
+                debug!("Found destination for {} => {}", dst, addr);
+                self.send_msg(addr, MESSAGE_TYPE_DATA, data)?;
             }
             None => {
                 // COLD PATH
