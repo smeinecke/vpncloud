@@ -129,7 +129,7 @@ impl<D: Device, P: Protocol, S: Socket, TS: TimeSource> GenericCloud<D, P, S, TS
             }
         }
         let now = TS::now();
-        let update_freq = config.get_keepalive() as u16;
+        let update_freq = min(config.get_keepalive(), u16::MAX as Duration) as u16;
         let node_id = random();
         let crypto = Crypto::new(node_id, &config.crypto).unwrap();
         let beacon_key = config.beacon_password.as_ref().map(|s| s.as_bytes()).unwrap_or(&[]);
@@ -142,7 +142,7 @@ impl<D: Device, P: Protocol, S: Socket, TS: TimeSource> GenericCloud<D, P, S, TS
             pending_inits: HashMap::default(),
             reconnect_peers: SmallVec::new(),
             own_addresses: SmallVec::new(),
-            peer_timeout_publish: config.peer_timeout as u16,
+            peer_timeout_publish: min(config.peer_timeout, u16::MAX as Duration) as u16,
             table: ClaimTable::new(config.switch_timeout as Duration, config.peer_timeout as Duration),
             socket,
             device,
