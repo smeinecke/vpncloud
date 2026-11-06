@@ -4,7 +4,7 @@
 
 use std::process::Command;
 use std::{
-    fmt,
+    fmt, io,
     net::{Ipv4Addr, SocketAddr, ToSocketAddrs, UdpSocket},
     sync::atomic::{AtomicIsize, Ordering},
 };
@@ -200,15 +200,14 @@ macro_rules! try_fail {
     } );
 }
 
-pub fn get_internal_ip() -> Ipv4Addr {
+pub fn get_internal_ip() -> io::Result<Ipv4Addr> {
     // Get the internal address (this trick gets the address by opening a UDP connection which
     // does not really open anything but returns the correct address)
-    let dummy_sock = UdpSocket::bind("0.0.0.0:0").expect("Failed to bind");
-    dummy_sock.connect("8.8.8.8:53").expect("Failed to connect");
-    if let SocketAddr::V4(addr) = dummy_sock.local_addr().expect("Failed to get local address") {
-        *addr.ip()
-    } else {
-        unreachable!()
+    let dummy_sock = UdpSocket::bind("0.0.0.0:0")?;
+    dummy_sock.connect("8.8.8.8:53")?;
+    match dummy_sock.local_addr()? {
+        SocketAddr::V4(addr) => Ok(*addr.ip()),
+        addr => Err(io::Error::new(io::ErrorKind::AddrNotAvailable, format!("Not an IPv4 address: {}", addr))),
     }
 }
 
