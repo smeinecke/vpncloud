@@ -7,7 +7,6 @@ use std::{
     collections::HashMap,
     fmt,
     fs::{self, File},
-    hash::BuildHasherDefault,
     io::{self, Cursor, Seek, SeekFrom, Write},
     marker::PhantomData,
     net::{SocketAddr, ToSocketAddrs},
@@ -15,7 +14,6 @@ use std::{
     str::FromStr,
 };
 
-use fnv::FnvHasher;
 use rand::{random, seq::SliceRandom, thread_rng};
 use smallvec::{smallvec, SmallVec};
 
@@ -39,7 +37,7 @@ use crate::{
     util::{addr_nice, bytes_to_hex, resolve, CtrlC, Duration, MsgBuffer, StatsdMsg, Time, TimeSource},
 };
 
-pub type Hash = BuildHasherDefault<FnvHasher>;
+pub type Hash = ahash::RandomState;
 
 const MAX_RECONNECT_INTERVAL: u16 = 3600;
 const RESOLVE_INTERVAL: Time = 300;

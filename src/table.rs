@@ -2,9 +2,8 @@
 // Copyright (C) 2015-2021  Dennis Schwerdel
 // This software is licensed under GPL-3 or newer (see LICENSE.md)
 
-use fnv::FnvHasher;
 use std::{
-    cmp::min, collections::HashMap, hash::BuildHasherDefault, io, io::Write, marker::PhantomData, net::SocketAddr,
+    cmp::min, collections::HashMap, io, io::Write, marker::PhantomData, net::SocketAddr,
 };
 
 use crate::{
@@ -12,7 +11,7 @@ use crate::{
     util::{addr_nice, Duration, Time, TimeSource},
 };
 
-type Hash = BuildHasherDefault<FnvHasher>;
+type Hash = ahash::RandomState;
 
 struct CacheValue {
     peer: SocketAddr,

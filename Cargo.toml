@@ -15,7 +15,7 @@ toolchain = "1.75.0"
 upx_version = "4.2.2"
 
 [dependencies]
-chrono = { version = "0.4", features = ["std", "clock"], default_features = false}
+chrono = { version = "0.4", features = ["std", "clock"], default-features = false}
 clap = { version = "4.5", features = ["derive", "env"] }
 clap_complete = "4.5"
 serde = { version = "1.0", features = ["derive"] }
@@ -24,7 +24,6 @@ log = { version = "0.4", features = ["std"] }
 signal = "0.7"
 libc = "0.2"
 rand = "0.8"
-fnv = "1"
 daemonize = "0.5"
 ring = "0.17"
 privdrop = "0.5"
@@ -35,6 +34,7 @@ dialoguer = { version = "0.11", optional = true }
 tungstenite = { version = "0.30", optional = true }
 url = { version = "2.2", optional = true }
 igd = { version = "0.12", optional = true }
+ahash = "0.8.12"
 
 
 [dev-dependencies]
