@@ -154,6 +154,9 @@ impl Range {
     pub fn read_from<R: Read>(mut r: R) -> Result<Range, Error> {
         let base = Address::read_from(&mut r)?;
         let prefix_len = r.read_u8().map_err(|_| Error::Parse("Address too short"))?;
+        if prefix_len > base.len * 8 {
+            return Err(Error::Parse("Prefix length exceeds address length"));
+        }
         Ok(Range { base, prefix_len })
     }
 
@@ -174,6 +177,9 @@ impl FromStr for Range {
         };
         let prefix_len = u8::from_str(&text[pos + 1..]).map_err(|_| Error::Parse("Failed to parse prefix length"))?;
         let base = Address::from_str(&text[..pos])?;
+        if prefix_len > base.len * 8 {
+            return Err(Error::Parse("Prefix length exceeds address length"));
+        }
         Ok(Range { base, prefix_len })
     }
 }
@@ -300,5 +306,20 @@ mod tests {
         assert!(Range::read_from(Cursor::new(&buf[..5])).is_err()); // Missing prefix length
         buf[0] = 17;
         assert!(Range::read_from(Cursor::new(&buf)).is_err());
+        buf[0] = 4;
+        buf[5] = 33;
+        assert!(Range::read_from(Cursor::new(&buf)).is_err()); // Prefix length exceeds address length
+    }
+
+    #[test]
+    fn range_parse() {
+        assert!(Range::from_str("10.0.0.0/24").is_ok());
+        assert!(Range::from_str("10.0.0.0/32").is_ok());
+        assert!(Range::from_str("10.0.0.0/33").is_err()); // Prefix exceeds address length
+        assert!(Range::from_str("::1/128").is_ok());
+        assert!(Range::from_str("::1/129").is_err()); // Prefix exceeds address length
+        assert!(Range::from_str("78:2d:16:05:01:02/48").is_ok());
+        assert!(Range::from_str("78:2d:16:05:01:02/49").is_err()); // Prefix exceeds address length
+        assert!(Range::from_str("10.0.0.0").is_err()); // Missing prefix
     }
 }
