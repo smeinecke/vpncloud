@@ -739,12 +739,16 @@ mod tests {
         assert_eq!(sender.stage(), WAITING_TO_CLOSE);
         match result {
             InitResult::Success { .. } => {
-                // lost peng, sender recovers
+                // lost peng, receiver resends pong and sender replies with another peng
                 out.clear();
             }
             InitResult::Continue => unreachable!(),
         };
         sender.every_second(&mut out).unwrap();
+        assert!(out.is_empty());
+        receiver.every_second(&mut out).unwrap();
+        let result = sender.handle_init(&mut out).unwrap();
+        assert_eq!(result, InitResult::Continue);
         let result = receiver.handle_init(&mut out).unwrap();
         assert_eq!(receiver.stage(), CLOSING);
         match result {
