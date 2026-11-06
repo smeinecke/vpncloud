@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [init_msg, decrypt, node_info, payload, beacon, range]
+        target: [init_msg, decrypt, node_info, payload, beacon, range, config]
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1

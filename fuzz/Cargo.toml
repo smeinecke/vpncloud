@@ -10,6 +10,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 ring = "0.17"
+serde_yaml = "0.9"
 
 [dependencies.vpncloud]
 path = ".."
@@ -47,5 +48,11 @@ doc = false
 [[bin]]
 name = "range"
 path = "fuzz_targets/range.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "config"
+path = "fuzz_targets/config.rs"
 test = false
 doc = false
