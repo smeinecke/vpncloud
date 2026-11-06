@@ -203,3 +203,91 @@ impl TrafficStats {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::Address;
+    use std::str::FromStr;
+
+    fn peer(s: &str) -> SocketAddr {
+        s.parse().unwrap()
+    }
+
+    fn address(s: &str) -> Address {
+        Address::from_str(s).unwrap()
+    }
+
+    #[test]
+    fn counts_and_rolls_over_periods() {
+        let mut stats = TrafficStats::default();
+        let p = peer("1.2.3.4:5");
+        stats.count_out_traffic(p, 100);
+        stats.count_out_traffic(p, 50);
+        stats.count_in_traffic(p, 200);
+        stats.period(None);
+        let entry = stats.get_peer_traffic().next().unwrap().1;
+        // Current period cleared, totals kept
+        assert_eq!(0, entry.out_bytes);
+        assert_eq!(150, entry.out_bytes_total);
+        assert_eq!(2, entry.out_packets_total);
+        assert_eq!(200, entry.in_bytes_total);
+        assert_eq!(1, entry.in_packets_total);
+    }
+
+    #[test]
+    fn idle_periods_tracked() {
+        let mut stats = TrafficStats::default();
+        let p = peer("1.2.3.4:5");
+        stats.count_out_traffic(p, 100);
+        stats.period(None);
+        // No traffic -> idle
+        stats.period(None);
+        stats.period(None);
+        assert_eq!(2, stats.get_peer_traffic().next().unwrap().1.idle_periods);
+        // Activity resets the idle count
+        stats.count_in_traffic(p, 10);
+        stats.period(None);
+        assert_eq!(0, stats.get_peer_traffic().next().unwrap().1.idle_periods);
+    }
+
+    #[test]
+    fn cleanup_idle_evicts() {
+        let mut stats = TrafficStats::default();
+        let p1 = peer("1.2.3.4:5");
+        let p2 = peer("1.2.3.4:6");
+        stats.count_out_traffic(p1, 1);
+        stats.count_out_traffic(p2, 1);
+        stats.period(Some(1));
+        stats.period(Some(1));
+        // Both idle for 1 period -> evicted
+        assert_eq!(0, stats.get_peer_traffic().count());
+        // An active entry survives eviction sweeps
+        stats.count_out_traffic(p1, 1);
+        stats.period(Some(1));
+        stats.count_out_traffic(p1, 1);
+        stats.period(Some(1));
+        assert_eq!(1, stats.get_peer_traffic().count());
+    }
+
+    #[test]
+    fn payload_and_dropped_counted() {
+        let mut stats = TrafficStats::default();
+        let (a, b) = (address("10.0.0.1"), address("10.0.0.2"));
+        stats.count_out_payload(a, b, 10);
+        stats.count_in_payload(a, b, 20);
+        stats.count_invalid_protocol(5);
+        stats.count_dropped_payload(7);
+        let total = stats.total_payload_traffic();
+        assert_eq!(10, total.out_bytes);
+        assert_eq!(20, total.in_bytes);
+        assert_eq!(1, stats.get_payload_traffic().count());
+        let mut out = Vec::new();
+        stats.write_out(&mut out).unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(text.contains("peer_traffic:"));
+        assert!(text.contains("payload_traffic:"));
+        assert!(text.contains("invalid_protocol_traffic:"));
+        assert!(text.contains("dropped_payload_traffic:"));
+    }
+}
