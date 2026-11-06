@@ -40,7 +40,14 @@ mod internal {
                 }
             };
             debug!("Port-forwarding: found router at {}", gateway.addr);
-            let internal_addr = SocketAddrV4::new(get_internal_ip(), port);
+            let internal_ip = match get_internal_ip() {
+                Ok(ip) => ip,
+                Err(err) => {
+                    error!("Port-forwarding: failed to determine internal IP: {}", err);
+                    return None;
+                }
+            };
+            let internal_addr = SocketAddrV4::new(internal_ip, port);
             // Query the external address
             let external_ip = match gateway.get_external_ip() {
                 Ok(ip) => ip,
