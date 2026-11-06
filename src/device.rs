@@ -492,6 +492,9 @@ fn get_default_device() -> io::Result<String> {
     for line in fd.lines() {
         let line = line?;
         let parts = line.split('\t').collect::<Vec<_>>();
+        if parts.len() < 3 {
+            continue;
+        }
         if parts[1] == "00000000" {
             best = Some(parts[0].to_string());
             break;
