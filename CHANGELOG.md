@@ -4,9 +4,21 @@ This project follows [semantic versioning](http://semver.org).
 
 ### UNRELEASED
 
+- [added] End-to-end test suite running real daemons in separate network namespaces (contrib/e2e), covering TUN/TAP, all ciphers, peer exchange, beacon discovery, link impairment and a throughput floor
+- [added] Performance regression gate `benches/perf_gate.rs` measuring crypto, parsing, claim-table lookups and the full packet path against a baseline
+- [added] Fuzzing workflow and seven cargo-fuzz targets for parsers, messages, beacons, config and decryption
+- [added] Peer lifecycle and switch simulation tests (peer exchange, dead-peer removal, timeouts, MAC expiry)
+- [changed] Migrated CLI parsing from structopt to clap 4
+- [changed] Replaced serde_yaml with the maintained serde_yaml_ng fork
+- [changed] Removed unused yaml-rust dependency
+- [changed] Replaced fnv hashing with ahash in hot-path tables
 - [changed] Changed Rust version to 1.75.0
-- [changed] Updated dependencies
+- [changed] Updated dependencies (fixing RUSTSEC advisories), including tungstenite 0.30 and criterion 0.8
+- [fixed] Reject replayed nonces inside the reordering window
+- [fixed] Beacons and peer advertisements were empty for the first minutes after startup
+- [fixed] Local address detection probed 8.8.8.8 even when bound to a concrete address, breaking isolated networks
 - [fixed] Fix error when IPv6 is not available
+- [fixed] Several panics and integer underflows on malformed input, small peer timeouts, /0 prefixes and short BSD packets
 
 ### v2.3.0 (2021-12-23)
 

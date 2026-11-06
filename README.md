@@ -1,7 +1,9 @@
 VpnCloud - Peer-to-Peer VPN
 ---------------------------
-![Checks](https://github.com/dswd/vpncloud/workflows/Checks/badge.svg?branch=master)
-![Security audit](https://github.com/dswd/vpncloud/workflows/Security%20audit/badge.svg?branch=master)
+![Checks](https://github.com/smeinecke/vpncloud/workflows/Checks/badge.svg?branch=master)
+![Security audit](https://github.com/smeinecke/vpncloud/workflows/Security%20audit/badge.svg?branch=master)
+![Integration Test](https://github.com/smeinecke/vpncloud/workflows/Integration%20Test/badge.svg?branch=master)
+![Benchmarks](https://github.com/smeinecke/vpncloud/workflows/Benchmarks/badge.svg?branch=master)
 
 **VpnCloud** is a high performance peer-to-peer mesh VPN over UDP supporting strong encryption, NAT traversal and a simple configuration. It establishes a fully-meshed self-healing VPN network in a peer-to-peer manner with strong end-to-end encryption based on elliptic curve keys and AES-256. VpnCloud creates a virtual network interface on the host and forwards all received data via UDP to the destination. It can work on TUN devices (IP based) and TAP devices (Ethernet based).
 
@@ -50,6 +52,27 @@ Prerequisites: Git, [Cargo](https://www.rust-lang.org/install.html), asciidoctor
 The checked-out code can be compiled with ``cargo build`` or ``cargo build --release`` (release version). The binary could then be found in `target/release/vpncloud`.
 
 The tests can be run via ``cargo test``.
+
+#### Testing and benchmarking
+
+Besides the unit and simulation tests (`cargo test`), the repository contains:
+
+* **End-to-end suite** (`contrib/e2e/`): runs real daemons in separate network namespaces inside a privileged Docker container and verifies encrypted delivery, all protocol modes, peer exchange, beacon discovery, link impairment and a minimum throughput floor:
+  ```sh
+  docker build -f contrib/e2e/Dockerfile -t vpncloud-e2e .
+  docker run --rm --privileged vpncloud-e2e
+  ```
+* **Performance regression gate** (`benches/perf_gate.rs`): measures crypto, payload parsing, claim-table lookups and the full packet path against a baseline:
+  ```sh
+  PERF_UPDATE=1 cargo bench --bench perf_gate   # write baseline
+  cargo bench --bench perf_gate                 # compare and gate
+  ```
+  `PERF_BASELINE` selects an alternate baseline file and `PERF_TOLERANCE_PCT` the allowed regression in percent (default 60). Criterion micro-benchmarks are in `benches/criterion.rs`.
+* **Fuzzing** (`fuzz/`): seven `cargo-fuzz` targets covering parsers, messages, beacons, config and decryption:
+  ```sh
+  cargo +nightly fuzz list
+  cargo +nightly fuzz run payload -- -max_total_time=600
+  ```
 
 
 #### Cross-Compiling & packaging

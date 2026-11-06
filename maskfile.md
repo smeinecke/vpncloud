@@ -179,6 +179,31 @@ gpg --armor --output vpncloud_${VERSION}_SHA256SUMS.txt.asc --detach-sig vpnclou
 cargo test --all-features
 ```
 
+## test-e2e
+
+> Run the end-to-end suite (needs Docker; runs privileged).
+
+```sh
+docker build -f contrib/e2e/Dockerfile -t vpncloud-e2e .
+docker run --rm --privileged vpncloud-e2e
+```
+
+## bench
+
+> Run the performance regression gate. PERF_UPDATE=1 rewrites the baseline.
+
+```sh
+cargo bench --bench perf_gate
+```
+
+## bench-criterion
+
+> Run the criterion micro benchmarks.
+
+```sh
+cargo bench --bench criterion
+```
+
 ## release
 
 > Release the project.
