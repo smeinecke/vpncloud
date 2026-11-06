@@ -463,9 +463,9 @@ fn set_device_enabled(ifname: &str, up: bool) -> io::Result<()> {
         return Err(IoError::last_os_error());
     }
     if up {
-        unsafe { ifreq.data.value |= libc::IFF_UP | libc::IFF_RUNNING }
+        unsafe { ifreq.data.flags |= (libc::IFF_UP | libc::IFF_RUNNING) as libc::c_short }
     } else {
-        unsafe { ifreq.data.value &= !libc::IFF_UP }
+        unsafe { ifreq.data.flags &= !(libc::IFF_UP as libc::c_short) }
     }
     let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCSIFFLAGS.try_into().unwrap(), &mut ifreq) };
     match res {
