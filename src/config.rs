@@ -343,7 +343,7 @@ impl Config {
     pub fn get_keepalive(&self) -> Duration {
         match self.keepalive {
             Some(dur) => dur,
-            None => max(self.peer_timeout / 2 - 60, 1),
+            None => max((self.peer_timeout / 2).saturating_sub(60), 1),
         }
     }
 
@@ -724,6 +724,16 @@ statsd:
 #[test]
 fn parse_example_config() {
     serde_yaml::from_str::<ConfigFile>(include_str!("../assets/example.net.disabled")).unwrap();
+}
+
+#[test]
+fn keepalive_small_peer_timeout() {
+    let mut config = Config { peer_timeout: 100, ..Config::default() };
+    assert_eq!(1, config.get_keepalive());
+    config.peer_timeout = 300;
+    assert_eq!(90, config.get_keepalive());
+    config.keepalive = Some(7);
+    assert_eq!(7, config.get_keepalive());
 }
 
 #[test]
