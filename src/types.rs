@@ -231,6 +231,21 @@ impl FromStr for Mode {
     }
 }
 
+impl clap::ValueEnum for Mode {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Mode::Normal, Mode::Hub, Mode::Switch, Mode::Router]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(clap::builder::PossibleValue::new(match self {
+            Mode::Normal => "normal",
+            Mode::Hub => "hub",
+            Mode::Switch => "switch",
+            Mode::Router => "router",
+        }))
+    }
+}
+
 #[cfg(test)]
 mod tests {
 

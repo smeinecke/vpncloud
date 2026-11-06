@@ -85,6 +85,19 @@ impl FromStr for Type {
     }
 }
 
+impl clap::ValueEnum for Type {
+    fn value_variants<'a>() -> &'a [Self] {
+        &[Type::Tun, Type::Tap]
+    }
+
+    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
+        Some(clap::builder::PossibleValue::new(match self {
+            Type::Tun => "tun",
+            Type::Tap => "tap",
+        }))
+    }
+}
+
 pub trait Device: AsRawFd {
     /// Returns the type of this device
     fn get_type(&self) -> Type;
