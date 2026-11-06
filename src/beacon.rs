@@ -153,7 +153,10 @@ impl<TS: TimeSource> BeaconSerializer<TS> {
     }
 
     fn peerlist_decode(&self, data: &str, ttl_hours: Option<u16>) -> Vec<SocketAddr> {
-        let mut data = from_base62(data).expect("Invalid input");
+        let mut data = match from_base62(data) {
+            Ok(data) => data,
+            Err(_) => return Vec::new(),
+        };
         let mut peers = Vec::new();
         let mut pos = 0;
         if data.len() < 4 {
