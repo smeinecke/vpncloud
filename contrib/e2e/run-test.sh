@@ -72,4 +72,16 @@ if ip netns exec ns1 ping -c1 -W2 10.0.0.2 >/dev/null 2>&1; then
     fail "ping succeeded after peer shutdown - delivery does not require the tunnel"
 fi
 
-echo "PASS: ping across encrypted tunnel succeeded and stopped with peer"
+# Auth boundary: a peer presenting the wrong password must never receive
+# tunneled traffic.
+ip netns exec ns2 vpncloud --type tun --device vpn0 --ip 10.0.0.2/24 \
+    --listen 192.168.99.2:3210 --peer 192.168.99.1:3210 \
+    --password WRONG --no-port-forwarding --verbose >/node2.log 2>&1 &
+N2=$!
+sleep 4
+kill -0 $N2 || fail "node2 (wrong password) exited"
+if ip netns exec ns1 ping -c1 -W2 10.0.0.2 >/dev/null 2>&1; then
+    fail "ping succeeded with mismatched password - unauthenticated peer received traffic"
+fi
+
+echo "PASS: encrypted tunnel verified (delivery requires tunnel and matching credentials)"
