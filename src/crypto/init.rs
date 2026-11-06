@@ -498,7 +498,7 @@ impl<P: Payload> InitState<P> {
         h2[0..4].clone_from_slice(&hash[0..4]);
         h2[4..].clone_from_slice(&node_id);
         let d = digest::digest(&digest::SHA256, &h2);
-        hash == d.as_ref()
+        hash[4..] == d.as_ref()[..16]
     }
 
     fn send_message(&mut self, stage: u8, ecdh_public_key: Option<EcdhPublicKey>, out: &mut MsgBuffer) {
@@ -827,6 +827,18 @@ mod tests {
         sender.send_ping(&mut out);
         assert_eq!(sender.stage(), STAGE_PONG);
         assert!(sender.handle_init(&mut out).is_err());
+    }
+
+    #[test]
+    fn connect_to_self_same_node_id() {
+        // Two init states with the same node id but different salts (e.g. a node connecting
+        // to one of its own addresses) must be detected as a self-connection.
+        let (mut sender, mut receiver) = create_pair();
+        receiver.node_id = sender.node_id;
+        let mut out = MsgBuffer::new(8);
+        sender.send_ping(&mut out);
+        assert_eq!(sender.stage(), STAGE_PONG);
+        assert!(receiver.handle_init(&mut out).is_err());
     }
 
     fn test_algorithm_negotiation(
