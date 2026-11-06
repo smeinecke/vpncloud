@@ -567,7 +567,7 @@ impl<P: Payload> InitState<P> {
     }
 
     pub fn handle_init(&mut self, out: &mut MsgBuffer) -> Result<InitResult<P>, Error> {
-        let (msg, _peer_key) = InitMsg::read_from(out.buffer(), &self.trusted_keys)?;
+        let (msg, _peer_key) = InitMsg::read_from(out.message(), &self.trusted_keys)?;
         out.clear();
         let stage = msg.stage();
         let salted_node_id_hash = *msg.salted_node_id_hash();
