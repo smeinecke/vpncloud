@@ -684,6 +684,42 @@ mod tests {
         }
     }
 
+    fn signed_ping() -> (Vec<u8>, [u8; ED25519_PUBLIC_KEY_LEN]) {
+        let rng = SystemRandom::new();
+        let pkcs8_bytes = Ed25519KeyPair::generate_pkcs8(&rng).unwrap();
+        let key_pair = Arc::new(Ed25519KeyPair::from_pkcs8(pkcs8_bytes.as_ref()).unwrap());
+        let mut public_key = [0; ED25519_PUBLIC_KEY_LEN];
+        public_key.clone_from_slice(key_pair.public_key().as_ref());
+        let mut node = [0; NODE_ID_BYTES];
+        rng.fill(&mut node).unwrap();
+        let algorithms = Algorithms {
+            algorithm_speeds: smallvec![(&AES_128_GCM, 600.0), (&AES_256_GCM, 500.0), (&CHACHA20_POLY1305, 400.0)],
+            allow_unencrypted: false,
+        };
+        let mut state = InitState::new(node, vec![1], key_pair, Arc::new([public_key]), algorithms);
+        let mut out = MsgBuffer::new(8);
+        state.send_ping(&mut out).unwrap();
+        (out.message().to_vec(), public_key)
+    }
+
+    #[test]
+    fn truncated_init_message_rejected() {
+        let (msg, public_key) = signed_ping();
+        for len in 0..msg.len() {
+            assert!(InitMsg::read_from(&msg[..len], &[public_key]).is_err(), "truncation to {} bytes accepted", len);
+        }
+    }
+
+    #[test]
+    fn tampered_init_message_rejected() {
+        let (msg, public_key) = signed_ping();
+        for pos in 0..msg.len() {
+            let mut mutated = msg.clone();
+            mutated[pos] ^= 1;
+            assert!(InitMsg::read_from(&mutated, &[public_key]).is_err(), "mutation at {} accepted", pos);
+        }
+    }
+
     fn create_pair() -> (InitState<Vec<u8>>, InitState<Vec<u8>>) {
         let rng = SystemRandom::new();
         let pkcs8_bytes = Ed25519KeyPair::generate_pkcs8(&rng).unwrap();
