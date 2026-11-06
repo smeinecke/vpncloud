@@ -37,7 +37,7 @@ const SPEED_TEST_TIME: f32 = 0.1;
 const ROTATE_INTERVAL: usize = 120;
 
 pub trait Payload: Debug + PartialEq + Sized {
-    fn write_to(&self, buffer: &mut MsgBuffer);
+    fn write_to(&self, buffer: &mut MsgBuffer) -> Result<(), Error>;
     fn read_from<R: Read>(r: R) -> Result<Self, Error>;
 }
 
@@ -267,7 +267,7 @@ impl<P: Payload> PeerCrypto<P> {
         if init.stage() != init::STAGE_PING {
             Err(Error::InvalidCryptoState("Initialization already ongoing"))
         } else {
-            init.send_ping(out);
+            init.send_ping(out)?;
             out.prepend_byte(INIT_MESSAGE_FIRST_BYTE);
             Ok(())
         }
