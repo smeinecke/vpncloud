@@ -251,13 +251,13 @@ impl NodeInfo {
         Ok(())
     }
 
-    pub fn encode(&self, buffer: &mut MsgBuffer) {
-        self.encode_internal(buffer).expect("Buffer too small")
+    pub fn encode(&self, buffer: &mut MsgBuffer) -> Result<(), Error> {
+        self.encode_internal(buffer).map_err(|_| Error::Message("NodeInfo does not fit buffer"))
     }
 }
 
 impl Payload for NodeInfo {
-    fn write_to(&self, buffer: &mut MsgBuffer) {
+    fn write_to(&self, buffer: &mut MsgBuffer) -> Result<(), Error> {
         self.encode(buffer)
     }
 

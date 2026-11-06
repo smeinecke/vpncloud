@@ -446,7 +446,7 @@ impl<D: Device, P: Protocol, S: Socket, TS: TimeSource> GenericCloud<D, P, S, TS
         if self.next_peers <= now {
             debug!("Send peer list to all peers");
             let info = self.create_node_info();
-            info.encode(&mut buffer);
+            info.encode(&mut buffer)?;
             self.broadcast_msg(MESSAGE_TYPE_NODE_INFO, &mut buffer)?;
             // Reschedule for next update
             let min_peer_timeout = self.peers.iter().map(|p| p.1.peer_timeout).min().unwrap_or(DEFAULT_PEER_TIMEOUT);

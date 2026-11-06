@@ -426,15 +426,16 @@ impl<P: Payload> InitState<P> {
         }
     }
 
-    pub fn send_ping(&mut self, out: &mut MsgBuffer) {
+    pub fn send_ping(&mut self, out: &mut MsgBuffer) -> Result<(), Error> {
         // create ecdh ephemeral key
         let (ecdh_private_key, ecdh_public_key) = self.create_ecdh_keypair();
         self.ecdh_private_key = Some(ecdh_private_key);
 
         // create stage 1 msg
-        self.send_message(STAGE_PING, Some(ecdh_public_key), out);
+        self.send_message(STAGE_PING, Some(ecdh_public_key), out)?;
 
         self.next_stage = STAGE_PONG;
+        Ok(())
     }
 
     pub fn stage(&self) -> u8 {
@@ -480,13 +481,13 @@ impl<P: Payload> InitState<P> {
         (ecdh_private_key, ecdh_public_key)
     }
 
-    fn encrypt_payload(&mut self) -> MsgBuffer {
+    fn encrypt_payload(&mut self) -> Result<MsgBuffer, Error> {
         let mut buffer = MsgBuffer::new(EXTRA_LEN);
-        self.payload.write_to(&mut buffer);
+        self.payload.write_to(&mut buffer)?;
         if let Some(crypto) = &mut self.crypto {
             crypto.encrypt(&mut buffer);
         }
-        buffer
+        Ok(buffer)
     }
 
     fn decrypt(&mut self, data: &mut MsgBuffer) -> Result<P, Error> {
@@ -504,7 +505,7 @@ impl<P: Payload> InitState<P> {
         hash[4..] == d.as_ref()[..16]
     }
 
-    fn send_message(&mut self, stage: u8, ecdh_public_key: Option<EcdhPublicKey>, out: &mut MsgBuffer) {
+    fn send_message(&mut self, stage: u8, ecdh_public_key: Option<EcdhPublicKey>, out: &mut MsgBuffer) -> Result<(), Error> {
         debug!("Sending init with stage={}", stage);
         assert!(out.is_empty());
         let mut public_key = [0; ED25519_PUBLIC_KEY_LEN];
@@ -519,18 +520,19 @@ impl<P: Payload> InitState<P> {
                 salted_node_id_hash: self.salted_node_id_hash,
                 ecdh_public_key: ecdh_public_key.unwrap(),
                 algorithms: self.algorithms.clone(),
-                encrypted_payload: self.encrypt_payload(),
+                encrypted_payload: self.encrypt_payload()?,
             },
             STAGE_PENG => InitMsg::Peng {
                 salted_node_id_hash: self.salted_node_id_hash,
-                encrypted_payload: self.encrypt_payload(),
+                encrypted_payload: self.encrypt_payload()?,
             },
             _ => unreachable!(),
         };
         let bytes = out.buffer();
-        let len = msg.write_to(bytes, &self.key_pair).expect("Buffer too small");
+        let len = msg.write_to(bytes, &self.key_pair).map_err(|_| Error::CryptoInit("Init message does not fit buffer"))?;
         self.last_message = Some(bytes[0..len].to_vec());
         out.set_length(len);
+        Ok(())
     }
 
     fn repeat_last_message(&self, out: &mut MsgBuffer) {
@@ -616,7 +618,7 @@ impl<P: Payload> InitState<P> {
                 }
 
                 // create and send stage 2 reply
-                self.send_message(STAGE_PONG, Some(my_ecdh_public_key), out);
+                self.send_message(STAGE_PONG, Some(my_ecdh_public_key), out)?;
 
                 self.next_stage = STAGE_PENG;
                 Ok(InitResult::Continue)
@@ -640,7 +642,7 @@ impl<P: Payload> InitState<P> {
                     .map_err(|_| Error::CryptoInitFatal("Failed to decrypt payload"))?;
 
                 // create and send stage 3 reply
-                self.send_message(STAGE_PENG, None, out);
+                self.send_message(STAGE_PENG, None, out)?;
 
                 self.next_stage = WAITING_TO_CLOSE;
                 self.close_time = 60;
@@ -669,9 +671,10 @@ mod tests {
     use crate::types::NODE_ID_BYTES;
 
     impl Payload for Vec<u8> {
-        fn write_to(&self, buffer: &mut MsgBuffer) {
-            buffer.buffer().write_all(self).expect("Buffer too small");
-            buffer.set_length(self.len())
+        fn write_to(&self, buffer: &mut MsgBuffer) -> Result<(), Error> {
+            buffer.buffer().write_all(self).map_err(|_| Error::Parse("Buffer too small"))?;
+            buffer.set_length(self.len());
+            Ok(())
         }
 
         fn read_from<R: Read>(mut r: R) -> Result<Self, Error> {
@@ -705,7 +708,7 @@ mod tests {
     fn normal_init() {
         let (mut sender, mut receiver) = create_pair();
         let mut out = MsgBuffer::new(8);
-        sender.send_ping(&mut out);
+        sender.send_ping(&mut out).unwrap();
         assert_eq!(sender.stage(), STAGE_PONG);
         let result = receiver.handle_init(&mut out).unwrap();
         assert_eq!(receiver.stage(), STAGE_PENG);
@@ -727,7 +730,7 @@ mod tests {
     fn lost_init_sender_recovers() {
         let (mut sender, mut receiver) = create_pair();
         let mut out = MsgBuffer::new(8);
-        sender.send_ping(&mut out);
+        sender.send_ping(&mut out).unwrap();
         assert_eq!(sender.stage(), STAGE_PONG);
         // lost ping, sender recovers
         out.clear();
@@ -764,7 +767,7 @@ mod tests {
     fn lost_init_receiver_recovers() {
         let (mut sender, mut receiver) = create_pair();
         let mut out = MsgBuffer::new(8);
-        sender.send_ping(&mut out);
+        sender.send_ping(&mut out).unwrap();
         assert_eq!(sender.stage(), STAGE_PONG);
         let result = receiver.handle_init(&mut out).unwrap();
         assert_eq!(receiver.stage(), STAGE_PENG);
@@ -796,7 +799,7 @@ mod tests {
     fn timeout() {
         let (mut sender, _receiver) = create_pair();
         let mut out = MsgBuffer::new(8);
-        sender.send_ping(&mut out);
+        sender.send_ping(&mut out).unwrap();
         assert_eq!(sender.stage(), STAGE_PONG);
         for _ in 0..120 {
             out.clear();
@@ -812,7 +815,7 @@ mod tests {
         let (mut sender, _) = create_pair();
         let (_, mut receiver) = create_pair();
         let mut out = MsgBuffer::new(8);
-        sender.send_ping(&mut out);
+        sender.send_ping(&mut out).unwrap();
         assert_eq!(sender.stage(), STAGE_PONG);
         assert!(receiver.handle_init(&mut out).is_err());
     }
@@ -821,7 +824,7 @@ mod tests {
     fn manipulated_message() {
         let (mut sender, mut receiver) = create_pair();
         let mut out = MsgBuffer::new(8);
-        sender.send_ping(&mut out);
+        sender.send_ping(&mut out).unwrap();
         assert_eq!(sender.stage(), STAGE_PONG);
         out.message_mut()[10] ^= 0x01;
         assert!(receiver.handle_init(&mut out).is_err());
@@ -831,7 +834,7 @@ mod tests {
     fn connect_to_self() {
         let (mut sender, _) = create_pair();
         let mut out = MsgBuffer::new(8);
-        sender.send_ping(&mut out);
+        sender.send_ping(&mut out).unwrap();
         assert_eq!(sender.stage(), STAGE_PONG);
         assert!(sender.handle_init(&mut out).is_err());
     }
@@ -843,7 +846,7 @@ mod tests {
         let (mut sender, mut receiver) = create_pair();
         receiver.node_id = sender.node_id;
         let mut out = MsgBuffer::new(8);
-        sender.send_ping(&mut out);
+        sender.send_ping(&mut out).unwrap();
         assert_eq!(sender.stage(), STAGE_PONG);
         assert!(receiver.handle_init(&mut out).is_err());
     }
@@ -855,7 +858,7 @@ mod tests {
         sender.algorithms = algos1;
         receiver.algorithms = algos2;
         let mut out = MsgBuffer::new(8);
-        sender.send_ping(&mut out);
+        sender.send_ping(&mut out).unwrap();
         let res = receiver.handle_init(&mut out);
         assert_eq!(res.is_ok(), success);
         if !success {
