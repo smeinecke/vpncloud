@@ -61,6 +61,10 @@ harness = false
 name = "msgbuffer_stack"
 harness = false
 
+[[bench]]
+name = "perf_gate"
+harness = false
+
 [profile.release]
 lto = true
 strip = true

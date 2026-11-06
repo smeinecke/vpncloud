@@ -1,0 +1,25 @@
+name: Benchmarks
+on:
+  pull_request:
+  push:
+    branches: [master]
+jobs:
+  perf:
+    name: Performance regression gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Resolve base ref
+        id: base
+        run: echo "ref=${{ github.event.pull_request.base.sha || github.event.before }}" >> "$GITHUB_OUTPUT"
+      - name: Bench base commit
+        run: |
+          git worktree add /tmp/base "${{ steps.base.outputs.ref }}"
+          cd /tmp/base
+          PERF_UPDATE=1 PERF_BASELINE=/tmp/base.txt cargo bench --bench perf_gate
+      - name: Compare head against base
+        run: |
+          PERF_BASELINE=/tmp/base.txt PERF_TOLERANCE_PCT=30 cargo bench --bench perf_gate
