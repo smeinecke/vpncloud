@@ -153,7 +153,7 @@ impl<D: Device, P: Protocol, S: Socket, TS: TimeSource> GenericCloud<D, P, S, TS
             next_housekeep: now,
             next_stats_out: now + STATS_INTERVAL,
             next_beacon: now,
-            next_own_address_reset: now + OWN_ADDRESS_RESET_INTERVAL,
+            next_own_address_reset: now,
             port_forwarding,
             traffic: TrafficStats::default(),
             beacon_serializer: BeaconSerializer::new(beacon_key),
@@ -483,6 +483,9 @@ impl<D: Device, P: Protocol, S: Socket, TS: TimeSource> GenericCloud<D, P, S, TS
     /// Stores the beacon
     fn store_beacon(&mut self) -> Result<(), Error> {
         if let Some(ref path) = self.config.beacon_store {
+            if self.own_addresses.is_empty() {
+                return Ok(());
+            }
             let peers: SmallVec<[SocketAddr; 3]> =
                 self.own_addresses.choose_multiple(&mut thread_rng(), 3).cloned().collect();
             if let Some(path) = path.strip_prefix('|') {

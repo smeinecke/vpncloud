@@ -68,7 +68,9 @@ impl Socket for UdpSocket {
 
     fn address(&self) -> Result<SocketAddr, io::Error> {
         let mut addr = self.local_addr()?;
-        addr.set_ip(get_ip()?);
+        if addr.ip().is_unspecified() {
+            addr.set_ip(get_ip()?);
+        }
         Ok(addr)
     }
 
