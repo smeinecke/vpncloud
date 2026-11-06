@@ -680,7 +680,7 @@ statsd:
   prefix: prefix
     ";
     assert_eq!(
-        serde_yaml::from_str::<ConfigFile>(config_file).unwrap(),
+        serde_yaml_ng::from_str::<ConfigFile>(config_file).unwrap(),
         ConfigFile {
             device: Some(ConfigFileDevice {
                 type_: Some(Type::Tun),
@@ -724,7 +724,7 @@ statsd:
 
 #[test]
 fn parse_example_config() {
-    serde_yaml::from_str::<ConfigFile>(include_str!("../assets/example.net.disabled")).unwrap();
+    serde_yaml_ng::from_str::<ConfigFile>(include_str!("../assets/example.net.disabled")).unwrap();
 }
 
 #[test]

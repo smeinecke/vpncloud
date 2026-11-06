@@ -1076,10 +1076,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_yaml"
-version = "0.9.33"
+name = "serde_yaml_ng"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0623d197252096520c6f2a5e1171ee436e5af99a5d7caa2891e55e61950e6d9"
+checksum = "7b4db627b98b36d4203a7b458cf3573730f2bb591b28871d916dfa9efabfd41f"
 dependencies = [
  "indexmap",
  "itoa",
@@ -1333,7 +1333,7 @@ dependencies = [
  "rand",
  "ring",
  "serde",
- "serde_yaml",
+ "serde_yaml_ng",
  "signal",
  "smallvec",
  "tempfile",
