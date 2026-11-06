@@ -267,6 +267,28 @@ impl Payload for NodeInfo {
 }
 
 #[test]
+fn decode_truncated_and_mutated_never_panics() {
+    let info = NodeInfo {
+        node_id: [3; NODE_ID_BYTES],
+        peers: smallvec![],
+        claims: smallvec!["10.0.0.0/8".parse().unwrap()],
+        peer_timeout: Some(300),
+        addrs: smallvec![],
+    };
+    let mut buffer = MsgBuffer::new(100);
+    info.write_to(&mut buffer).unwrap();
+    let data = buffer.message().to_vec();
+    for len in 0..=data.len() {
+        let _ = NodeInfo::decode(&mut &data[..len]);
+    }
+    for pos in 0..data.len() {
+        let mut mutated = data.clone();
+        mutated[pos] ^= 1;
+        let _ = NodeInfo::decode(&mut &mutated[..]);
+    }
+}
+
+#[test]
 fn decode_padded_parts() {
     // A node info message where the peer_timeout part declares a larger
     // length than its content; the remaining bytes must be skipped, not

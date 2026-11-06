@@ -239,6 +239,54 @@ mod tests {
     use std::io::Cursor;
 
     #[test]
+    fn range_matches_reference() {
+        // Compare Range::matches against a naive masking implementation
+        let mut seed: u64 = 0x5eed_1234_5678_9abc;
+        let mut next = move || {
+            seed ^= seed << 13;
+            seed ^= seed >> 7;
+            seed ^= seed << 17;
+            seed
+        };
+        for _ in 0..5000 {
+            let len = if next() % 2 == 0 { 4 } else { 16 };
+            let mut base = Address { data: [0; 16], len };
+            let mut addr = Address { data: [0; 16], len };
+            for b in base.data[..len as usize].iter_mut() {
+                *b = next() as u8;
+            }
+            for b in addr.data[..len as usize].iter_mut() {
+                *b = next() as u8;
+            }
+            let prefix_len = (next() % u64::from(len) * 8 + 1) as u8;
+            let range = Range { base, prefix_len };
+            // Reference: first prefix_len bits must be identical
+            let expected = (0..prefix_len).all(|bit| {
+                let (byte, off) = ((bit / 8) as usize, 7 - bit % 8);
+                (base.data[byte] >> off) & 1 == (addr.data[byte] >> off) & 1
+            });
+            assert_eq!(expected, range.matches(addr), "range {}/{} vs {:?}", base, prefix_len, addr);
+        }
+    }
+
+    #[test]
+    fn truncated_range_address_never_panics() {
+        let mut wire = Vec::new();
+        "10.0.0.0/8".parse::<Range>().unwrap().write_to(&mut wire).unwrap();
+        "120.45.22.5".parse::<Address>().unwrap().write_to(&mut wire).unwrap();
+        for len in 0..=wire.len() {
+            let _ = Range::read_from(&mut &wire[..len]);
+            let _ = Address::read_from(&mut &wire[..len]);
+        }
+        for pos in 0..wire.len() {
+            let mut mutated = wire.clone();
+            mutated[pos] ^= 1;
+            let _ = Range::read_from(&mut &mutated[..]);
+            let _ = Address::read_from(&mut &mutated[..]);
+        }
+    }
+
+    #[test]
     fn address_parse_fmt() {
         assert_eq!(format!("{}", Address::from_str("120.45.22.5").unwrap()), "120.45.22.5");
         assert_eq!(format!("{}", Address::from_str("78:2d:16:05:01:02").unwrap()), "78:2d:16:05:01:02");
