@@ -22,4 +22,5 @@ jobs:
       - name: Generate seed corpus
         run: cargo run --example gen_seeds -- fuzz/corpus/${{ matrix.target }}
       - name: Fuzz
-        run: cargo fuzz run ${{ matrix.target }} --manifest-path fuzz/Cargo.toml -- -max_total_time=300 -detect_leaks=0 -timeout=10 -rss_limit_mb=2048
+        working-directory: fuzz
+        run: cargo fuzz run ${{ matrix.target }} -- -max_total_time=300 -detect_leaks=0 -timeout=10 -rss_limit_mb=2048
