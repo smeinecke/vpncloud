@@ -22,8 +22,10 @@ static TUNSETIFF: libc::c_ulong = 1074025674;
 #[repr(C)]
 #[derive(Copy, Clone)]
 struct IfReqDataAddr {
-    af: libc::c_int,
-    addr: Ipv4Addr
+    family: libc::sa_family_t,
+    port: libc::in_port_t,
+    addr: Ipv4Addr,
+    _dummy: [u8; 8]
 }
 
 #[repr(C)]
@@ -399,8 +401,8 @@ fn get_device_addr(ifname: &str) -> io::Result<Ipv4Addr> {
     let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCGIFADDR.try_into().unwrap(), &mut ifreq) };
     match res {
         0 => {
-            let af = unsafe { ifreq.data.addr.af };
-            if af as libc::c_int != libc::AF_INET {
+            let family = unsafe { ifreq.data.addr.family };
+            if family != libc::AF_INET as libc::sa_family_t {
                 return Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "Invalid address family".to_owned()));
             }
             let ip = unsafe { ifreq.data.addr.addr };
@@ -414,7 +416,8 @@ fn get_device_addr(ifname: &str) -> io::Result<Ipv4Addr> {
 fn set_device_addr(ifname: &str, addr: Ipv4Addr) -> io::Result<()> {
     let sock = UdpSocket::bind("0.0.0.0:0")?;
     let mut ifreq = IfReq::new(ifname);
-    ifreq.data.addr.af = libc::AF_INET as libc::c_int;
+    ifreq.data.addr.family = libc::AF_INET as libc::sa_family_t;
+    ifreq.data.addr.port = 0;
     ifreq.data.addr.addr = addr;
     let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCSIFADDR.try_into().unwrap(), &mut ifreq) };
     match res {
@@ -431,8 +434,8 @@ fn get_device_netmask(ifname: &str) -> io::Result<Ipv4Addr> {
     let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCGIFNETMASK.try_into().unwrap(), &mut ifreq) };
     match res {
         0 => {
-            let af = unsafe { ifreq.data.addr.af };
-            if af as libc::c_int != libc::AF_INET {
+            let family = unsafe { ifreq.data.addr.family };
+            if family != libc::AF_INET as libc::sa_family_t {
                 return Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "Invalid address family".to_owned()));
             }
             let ip = unsafe { ifreq.data.addr.addr };
@@ -446,7 +449,8 @@ fn get_device_netmask(ifname: &str) -> io::Result<Ipv4Addr> {
 fn set_device_netmask(ifname: &str, addr: Ipv4Addr) -> io::Result<()> {
     let sock = UdpSocket::bind("0.0.0.0:0")?;
     let mut ifreq = IfReq::new(ifname);
-    ifreq.data.addr.af = libc::AF_INET as libc::c_int;
+    ifreq.data.addr.family = libc::AF_INET as libc::sa_family_t;
+    ifreq.data.addr.port = 0;
     ifreq.data.addr.addr = addr;
     let res = unsafe { libc::ioctl(sock.as_raw_fd(), libc::SIOCSIFNETMASK.try_into().unwrap(), &mut ifreq) };
     match res {
