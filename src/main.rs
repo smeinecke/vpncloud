@@ -37,7 +37,7 @@ pub mod wizard;
 #[cfg(feature = "websocket")]
 pub mod wsproxy;
 
-use structopt::StructOpt;
+use clap::{CommandFactory, Parser};
 
 use std::{
     fs::{self, File, Permissions},
@@ -231,7 +231,7 @@ fn run<P: Protocol, S: Socket>(config: Config, socket: S) {
 }
 
 fn main() {
-    let args: Args = Args::from_args();
+    let args: Args = Args::parse();
     if args.version {
         println!("VpnCloud v{}", env!("CARGO_PKG_VERSION"));
         return;
@@ -276,7 +276,7 @@ fn main() {
                 try_fail!(serde_yaml::to_writer(f, &new_config), "Failed to write converted config: {:?}");
             }
             Command::Completion { shell } => {
-                Args::clap().gen_completions_to(env!("CARGO_PKG_NAME"), shell, &mut io::stdout());
+                clap_complete::generate(shell, &mut Args::command(), env!("CARGO_PKG_NAME"), &mut io::stdout());
             }
             #[cfg(feature = "websocket")]
             Command::WsProxy { listen } => {
