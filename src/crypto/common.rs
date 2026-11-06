@@ -346,8 +346,7 @@ impl<P: Payload> PeerCrypto<P> {
         if self.unencrypted {
             return Ok(());
         }
-        self.get_core()?.encrypt(buffer);
-        Ok(())
+        self.get_core()?.encrypt(buffer)
     }
 
     fn decrypt_message(&mut self, buffer: &mut MsgBuffer) -> Result<(), Error> {

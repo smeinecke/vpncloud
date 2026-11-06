@@ -485,7 +485,7 @@ impl<P: Payload> InitState<P> {
         let mut buffer = MsgBuffer::new(EXTRA_LEN);
         self.payload.write_to(&mut buffer)?;
         if let Some(crypto) = &mut self.crypto {
-            crypto.encrypt(&mut buffer);
+            crypto.encrypt(&mut buffer)?;
         }
         Ok(buffer)
     }
