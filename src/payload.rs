@@ -3,7 +3,6 @@
 // This software is licensed under GPL-3 or newer (see LICENSE.md)
 
 use crate::{error::Error, types::Address};
-use std::io::{Cursor, Read};
 
 pub trait Protocol: Sized {
     fn parse(_: &[u8]) -> Result<(Address, Address), Error>;
@@ -24,19 +23,21 @@ impl Protocol for Frame {
     /// This method will fail when the given data is not a valid ethernet frame.
     fn parse(data: &[u8]) -> Result<(Address, Address), Error> {
         // HOT PATH
-        let mut cursor = Cursor::new(data);
+        if data.len() < 14 {
+            return Err(Error::Parse("Frame is too short"));
+        }
         let mut src = [0; 16];
         let mut dst = [0; 16];
-        let mut proto = [0; 2];
-        cursor
-            .read_exact(&mut dst[..6])
-            .and_then(|_| cursor.read_exact(&mut src[..6]))
-            .and_then(|_| cursor.read_exact(&mut proto))
-            .map_err(|_| Error::Parse("Frame is too short"))?;
+        dst[..6].copy_from_slice(&data[..6]);
+        src[..6].copy_from_slice(&data[6..12]);
+        let proto = [data[12], data[13]];
         if proto == [0x81, 0x00] {
+            if data.len() < 16 {
+                return Err(Error::Parse("Vlan frame is too short"));
+            }
             src.copy_within(..6, 2);
             dst.copy_within(..6, 2);
-            cursor.read_exact(&mut src[..2]).map_err(|_| Error::Parse("Vlan frame is too short"))?;
+            src[..2].copy_from_slice(&data[14..16]);
             src[0] &= 0x0f; // restrict vlan id to 12 bits
             dst[..2].copy_from_slice(&src[..2]);
             if src[..2] == [0, 0] {
