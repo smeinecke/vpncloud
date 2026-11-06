@@ -238,7 +238,7 @@ impl TunTapDevice {
             Some(value) => value,
             None => {
                 let default_device = get_default_device()?;
-                get_device_mtu(&default_device)? - self.get_overhead()
+                get_device_mtu(&default_device)?.saturating_sub(self.get_overhead())
             }
         };
         info!("Setting MTU {} on device {}", value, self.ifname);
