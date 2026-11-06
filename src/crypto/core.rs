@@ -155,10 +155,12 @@ impl CryptoCore {
         }
     }
 
-    pub fn encrypt(&mut self, buffer: &mut MsgBuffer) {
+    pub fn encrypt(&mut self, buffer: &mut MsgBuffer) -> Result<(), Error> {
         let data_start = buffer.get_start();
         let data_length = buffer.len();
-        assert!(buffer.get_start() >= EXTRA_LEN);
+        if data_start < EXTRA_LEN || data_length + TAG_LEN > buffer.buffer().len() {
+            return Err(Error::Crypto("Message does not fit buffer"));
+        }
         buffer.set_start(data_start - EXTRA_LEN);
         buffer.set_length(data_length + EXTRA_LEN + TAG_LEN);
         let (extra, data_and_tag) = buffer.message_mut().split_at_mut(EXTRA_LEN);
@@ -173,6 +175,7 @@ impl CryptoCore {
         let nonce = aead::Nonce::assume_unique_for_key(*key.send_nonce.as_bytes());
         let tag = key.key.seal_in_place_separate_tag(nonce, aead::Aad::empty(), data).expect("Failed to encrypt");
         tag_space.clone_from_slice(tag.as_ref());
+        Ok(())
     }
 
     fn decrypt_with_key(key: &mut CryptoKey, nonce: Nonce, data_and_tag: &mut [u8]) -> Result<(), Error> {
@@ -248,7 +251,7 @@ pub fn test_speed(algo: &'static aead::Algorithm, max_time: &Duration) -> f64 {
     let start = Instant::now();
     while (Instant::now() - start).as_nanos() < max_time.as_nanos() {
         for _ in 0..1000 {
-            sender.encrypt(&mut buffer);
+            sender.encrypt(&mut buffer).unwrap();
             receiver.decrypt(&mut buffer).unwrap();
         }
         iterations += 1000;
@@ -279,7 +282,7 @@ mod tests {
         let mut buffer = MsgBuffer::new(EXTRA_LEN);
         buffer.clone_from(&plain);
         assert_eq!(&plain[..], buffer.message());
-        sender.encrypt(&mut buffer);
+        sender.encrypt(&mut buffer).unwrap();
         assert_ne!(&plain[..], buffer.message());
         receiver.decrypt(&mut buffer).unwrap();
         assert_eq!(&plain[..], buffer.message());
@@ -305,7 +308,7 @@ mod tests {
         let plain = random_data(1000);
         let mut buffer = MsgBuffer::new(EXTRA_LEN);
         buffer.clone_from(&plain);
-        sender.encrypt(&mut buffer);
+        sender.encrypt(&mut buffer).unwrap();
         let mut d = buffer.clone();
         assert!(receiver.decrypt(&mut d,).is_ok());
         // Tamper with extra data byte 1 (subkey id)
@@ -356,7 +359,7 @@ mod tests {
         let plain = random_data(1000);
         let mut buffer = MsgBuffer::new(EXTRA_LEN);
         buffer.clone_from(&plain);
-        sender.encrypt(&mut buffer);
+        sender.encrypt(&mut buffer).unwrap();
         {
             let mut d = buffer.clone();
             assert!(receiver.decrypt(&mut d).is_ok());
@@ -373,7 +376,7 @@ mod tests {
         }
         let mut buffer = MsgBuffer::new(EXTRA_LEN);
         buffer.clone_from(&plain);
-        sender.encrypt(&mut buffer);
+        sender.encrypt(&mut buffer).unwrap();
         assert!(receiver.decrypt(&mut buffer).is_ok());
     }
 
@@ -398,31 +401,31 @@ mod tests {
         let mut buffer = MsgBuffer::new(EXTRA_LEN);
         buffer.clone_from(&plain);
 
-        sender.encrypt(&mut buffer);
+        sender.encrypt(&mut buffer).unwrap();
         assert!(receiver.decrypt(&mut buffer).is_ok());
 
         let new_key = random_data(algo.key_len());
         receiver.rotate_key(LessSafeKey::new(UnboundKey::new(algo, &new_key).unwrap()), 1, false);
-        receiver.encrypt(&mut buffer);
+        receiver.encrypt(&mut buffer).unwrap();
         assert!(sender.decrypt(&mut buffer).is_ok());
-        sender.encrypt(&mut buffer);
+        sender.encrypt(&mut buffer).unwrap();
         assert!(receiver.decrypt(&mut buffer).is_ok());
         sender.rotate_key(LessSafeKey::new(UnboundKey::new(algo, &new_key).unwrap()), 1, true);
-        receiver.encrypt(&mut buffer);
+        receiver.encrypt(&mut buffer).unwrap();
         assert!(sender.decrypt(&mut buffer).is_ok());
-        sender.encrypt(&mut buffer);
+        sender.encrypt(&mut buffer).unwrap();
         assert!(receiver.decrypt(&mut buffer).is_ok());
         let new_key = random_data(algo.key_len());
         sender.rotate_key(LessSafeKey::new(UnboundKey::new(algo, &new_key).unwrap()), 2, true);
-        sender.encrypt(&mut buffer);
+        sender.encrypt(&mut buffer).unwrap();
         assert!(receiver.decrypt(&mut buffer).is_err());
-        receiver.encrypt(&mut buffer);
+        receiver.encrypt(&mut buffer).unwrap();
         assert!(sender.decrypt(&mut buffer).is_ok());
 
         receiver.rotate_key(LessSafeKey::new(UnboundKey::new(algo, &new_key).unwrap()), 2, false);
-        receiver.encrypt(&mut buffer);
+        receiver.encrypt(&mut buffer).unwrap();
         assert!(sender.decrypt(&mut buffer).is_ok());
-        sender.encrypt(&mut buffer);
+        sender.encrypt(&mut buffer).unwrap();
         assert!(receiver.decrypt(&mut buffer).is_ok());
     }
 
