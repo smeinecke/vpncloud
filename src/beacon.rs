@@ -249,15 +249,19 @@ impl<TS: TimeSource> BeaconSerializer<TS> {
 
     pub fn decode(&self, data: &str, ttl_hours: Option<u16>) -> Vec<SocketAddr> {
         let data = base_62_sanitize(data);
-        let mut peers = Vec::new();
         let begin = self.begin();
         let end = self.end();
+        self.decode_str(&data, &begin, &end, ttl_hours)
+    }
+
+    fn decode_str(&self, data: &str, begin: &str, end: &str, ttl_hours: Option<u16>) -> Vec<SocketAddr> {
+        let mut peers = Vec::new();
         let mut pos = 0;
-        while let Some(found) = data[pos..].find(&begin) {
+        while let Some(found) = data[pos..].find(begin) {
             pos += found;
             let start_pos = pos + begin.len();
-            if let Some(found) = data[pos..].find(&end) {
-                let end_pos = pos + found;
+            if let Some(found) = data[start_pos..].find(end) {
+                let end_pos = start_pos + found;
                 peers.append(&mut self.peerlist_decode(&data[start_pos..end_pos], ttl_hours));
                 pos = start_pos
             } else {
@@ -419,6 +423,17 @@ fn decode_invalid() {
     assert_eq!(0, ser.decode("WsHI32EWDMBYxvITiILIrm2k9gEik22E", None).len());
     assert_eq!(2, ser.decode("ik22EWsHI31EWDMBYxvITiILIrm2k9gEik22EWsHI3", None).len());
     assert_eq!(2, ser.decode("WsHI3WsHI31EWDMBYxvITiILIrm2k9gEik22Eik22E", None).len());
+}
+
+#[test]
+fn decode_overlapping_end() {
+    MockTimeSource::set_time(2000 * 3600);
+    let ser = BeaconSerializer::<MockTimeSource>::new(b"mysecretkey");
+    // An end marker that overlaps the begin marker must not be treated as
+    // beacon end, otherwise the payload slice would be inverted and panic
+    assert_eq!(0, ser.decode_str("aaaaa", "aaaaa", "aaaaa", None).len());
+    assert_eq!(0, ser.decode_str("aaaaabbbb", "aaaaa", "abbbb", None).len());
+    assert_eq!(0, ser.decode_str("xaaaaaYbbbby", "aaaaa", "Ybbb", None).len());
 }
 
 #[test]
