@@ -10,7 +10,7 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 ring = "0.17"
-serde_yaml = "0.9"
+serde_yaml_ng = "0.10"
 
 [dependencies.vpncloud]
 path = ".."

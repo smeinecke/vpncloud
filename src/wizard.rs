@@ -464,7 +464,7 @@ pub fn configure(name: Option<String>) -> Result<(), dialoguer::Error> {
     let file = Path::new("/etc/vpncloud").join(format!("{}.net", name));
     if file.exists() {
         let f = fs::File::open(&file)?;
-        let config_file = serde_yaml::from_reader(f)
+        let config_file = serde_yaml_ng::from_reader(f)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Failed to parse config file"))?;
         config.merge_file(config_file);
     }
@@ -495,7 +495,7 @@ pub fn configure(name: Option<String>) -> Result<(), dialoguer::Error> {
     if Confirm::with_theme(&theme).with_prompt("Save config?").default(true).interact()? {
         let config_file = config.into_config_file();
         let f = fs::File::create(&file)?;
-        serde_yaml::to_writer(f, &config_file)
+        serde_yaml_ng::to_writer(f, &config_file)
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Failed to parse config file"))?;
         fs::set_permissions(file, fs::Permissions::from_mode(0o600))?;
         println!();
