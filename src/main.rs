@@ -135,7 +135,7 @@ fn parse_ip_netmask(addr: &str) -> Result<(Ipv4Addr, Ipv4Addr), String> {
         return Err(format!("Invalid prefix length: {}", prefix_len));
     }
     let ip = Ipv4Addr::from_str(ip_str).map_err(|_| format!("Invalid ip address: {}", ip_str))?;
-    let netmask = Ipv4Addr::from(u32::max_value().checked_shl(32 - prefix_len as u32).unwrap());
+    let netmask = Ipv4Addr::from(u32::max_value().checked_shl(32 - prefix_len as u32).unwrap_or(0));
     Ok((ip, netmask))
 }
 
@@ -336,4 +336,26 @@ fn main() {
         Type::Tap => run::<payload::Frame, _>(config, socket),
         Type::Tun => run::<payload::Packet, _>(config, socket),
     }
+}
+
+#[test]
+fn test_parse_ip_netmask() {
+    assert_eq!(
+        (Ipv4Addr::new(10, 0, 0, 1), Ipv4Addr::new(255, 255, 0, 0)),
+        parse_ip_netmask("10.0.0.1/16").unwrap()
+    );
+    assert_eq!(
+        (Ipv4Addr::new(10, 0, 0, 1), Ipv4Addr::new(255, 255, 255, 0)),
+        parse_ip_netmask("10.0.0.1").unwrap()
+    );
+    assert_eq!(
+        (Ipv4Addr::new(10, 0, 0, 1), Ipv4Addr::new(255, 255, 255, 255)),
+        parse_ip_netmask("10.0.0.1/32").unwrap()
+    );
+    assert_eq!(
+        (Ipv4Addr::new(10, 0, 0, 1), Ipv4Addr::new(0, 0, 0, 0)),
+        parse_ip_netmask("10.0.0.1/0").unwrap()
+    );
+    assert!(parse_ip_netmask("10.0.0.1/33").is_err());
+    assert!(parse_ip_netmask("10.0.0.x/16").is_err());
 }
