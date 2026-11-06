@@ -192,7 +192,9 @@ impl CryptoCore {
     }
 
     pub fn decrypt(&mut self, buffer: &mut MsgBuffer) -> Result<(), Error> {
-        assert!(buffer.len() >= EXTRA_LEN + TAG_LEN);
+        if buffer.len() < EXTRA_LEN + TAG_LEN {
+            return Err(Error::Crypto("Input data too short"));
+        }
         let (extra, data_and_tag) = buffer.message_mut().split_at_mut(EXTRA_LEN);
         let key_id;
         let mut nonce;
@@ -336,6 +338,17 @@ mod tests {
     #[test]
     fn test_tampering_chacha() {
         test_tampering(&aead::CHACHA20_POLY1305)
+    }
+
+    #[test]
+    fn test_decrypt_short_message() {
+        let (_, mut receiver) = create_dummy_pair(&aead::AES_256_GCM);
+        // Messages shorter than EXTRA_LEN + TAG_LEN must be rejected, not panic
+        for len in 0..EXTRA_LEN + TAG_LEN {
+            let mut buffer = MsgBuffer::new(EXTRA_LEN);
+            buffer.set_length(len);
+            assert!(receiver.decrypt(&mut buffer).is_err());
+        }
     }
 
     fn test_nonce_pinning(algo: &'static aead::Algorithm) {
