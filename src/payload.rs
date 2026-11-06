@@ -39,7 +39,7 @@ impl Protocol for Frame {
             cursor.read_exact(&mut src[..2]).map_err(|_| Error::Parse("Vlan frame is too short"))?;
             src[0] &= 0x0f; // restrict vlan id to 12 bits
             dst[..2].copy_from_slice(&src[..2]);
-            if src[0..1] == [0, 0] {
+            if src[..2] == [0, 0] {
                 // treat vlan id 0x000 as untagged
                 src.copy_within(2..8, 0);
                 dst.copy_within(2..8, 0);
@@ -66,6 +66,19 @@ fn decode_frame_with_vlan() {
     let (src, dst) = Frame::parse(&data).unwrap();
     assert_eq!(src, Address { data: [4, 210, 1, 2, 3, 4, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0], len: 8 });
     assert_eq!(dst, Address { data: [4, 210, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0], len: 8 });
+}
+
+#[test]
+fn decode_frame_with_vlan_id_zero() {
+    let data = [6, 5, 4, 3, 2, 1, 1, 2, 3, 4, 5, 6, 0x81, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8];
+    let (src, dst) = Frame::parse(&data).unwrap();
+    assert_eq!(src, Address { data: [1, 2, 3, 4, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], len: 6 });
+    assert_eq!(dst, Address { data: [6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], len: 6 });
+    // priority-tagged frame (PCP/DEI bits set, vlan id 0) is also untagged
+    let data = [6, 5, 4, 3, 2, 1, 1, 2, 3, 4, 5, 6, 0x81, 0, 0xe0, 0, 1, 2, 3, 4, 5, 6, 7, 8];
+    let (src, dst) = Frame::parse(&data).unwrap();
+    assert_eq!(src, Address { data: [1, 2, 3, 4, 5, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], len: 6 });
+    assert_eq!(dst, Address { data: [6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], len: 6 });
 }
 
 #[test]
