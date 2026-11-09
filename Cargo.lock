@@ -1475,7 +1475,7 @@ dependencies = [
  "libc",
  "log",
  "privdrop",
- "rand 0.8.8",
+ "rand 0.10.3",
  "ring",
  "serde",
  "serde_yaml_ng",
