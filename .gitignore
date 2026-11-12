@@ -16,3 +16,4 @@ release.sh
 __pycache__
 *.pem
 .vscode
+dist-anon/
