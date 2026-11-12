@@ -23,14 +23,14 @@ serde_yaml_ng = "0.10"
 log = { version = "0.4", features = ["std"] }
 signal = "0.7"
 libc = "0.2"
-rand = "0.8"
+rand = "0.10"
 daemonize = "0.5"
 ring = "0.17"
 privdrop = "0.5"
 byteorder = "1.4"
 thiserror = "1.0"
 smallvec = "1.7"
-dialoguer = { version = "0.11", optional = true }
+dialoguer = { version = "0.12", optional = true }
 tungstenite = { version = "0.30", optional = true }
 url = { version = "2.2", optional = true }
 igd = { version = "0.12", optional = true }
